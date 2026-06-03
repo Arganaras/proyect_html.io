@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Canvas Cyber-OS v2.6</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body class="dark-mode"> <div id="edit-sidebar">
+        <div class="edit-sidebar-header">
+            <h2><span class="neon-text">//</span> PROPIEDADES</h2>
+            <button id="close-edit-sidebar">✕</button>
+        </div>
+
+        <div id="text-edit-section" class="edit-group">
+            <h3>[ TEXTO ]</h3>
+            <label>Color fuente</label>
+            <input type="color" id="floatColor">
+            
+            <label>Tamaño (px)</label>
+            <input type="number" id="floatSize" min="10" max="100">
+            
+            <label>Tipografía</label>
+            <select id="floatFont">
+                <option value="'Courier New', monospace">Courier New (Console)</option>
+                <option value="'Segoe UI', sans-serif">Segoe UI</option>
+                <option value="Arial, sans-serif">Arial</option>
+                <option value="'Times New Roman', serif">Times New Roman</option>
+            </select>
+
+            <label>Formato</label>
+            <div class="flex-row gap-small">
+                <button class="btn-sidebar-action" onclick="applyInlineFormat('bold')">B</button>
+                <button class="btn-sidebar-action" onclick="applyInlineFormat('italic')">I</button>
+                <button class="btn-sidebar-action" onclick="applyInlineFormat('underline')">U</button>
+            </div>
+        </div>
+
+        <div id="box-edit-section" class="edit-group">
+            <h3>[ ESTRUCTURA ]</h3>
+            <label>Color fondo</label>
+            <input type="color" id="floatBgColor">
+            
+            <label>Radio esquina</label>
+            <input type="range" id="floatRadius" min="0" max="100" value="0">
+            
+            <label>Grosor borde</label>
+            <input type="range" id="floatBorder" min="0" max="20" value="0">
+            
+            <label>Color borde</label>
+            <input type="color" id="floatBorderColor">
+        </div>
+
+        <div class="edit-group">
+            <h3>[ EFECTOS ]</h3>
+            <label>Brillo Sombra</label>
+            <input type="range" id="floatShadow" min="0" max="50" value="0">
+
+            <label>Rotación (deg)</label>
+            <input type="range" id="floatRotate" min="0" max="360" value="0">
+            
+            <label>Opacidad</label>
+            <input type="range" id="floatOpacity" min="0" max="100" value="100">
+        </div>
+
+        <div class="edit-group">
+            <h3>[ ACCIONES ]</h3>
+            <div class="flex-row">
+                <button id="floatDuplicate" class="btn-sidebar-action">Duplicar</button>
+                <button id="floatDelete" class="btn-sidebar-action btn-danger">Eliminar</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="sidebar">
+        <div class="sidebar-top">
+            <h2>CORE_OS v2.6</h2>
+            <button id="themeToggleBtn" onclick="toggleTheme()">☀️</button>
+        </div>
+
+        <div class="scroller-tools">
+            <h3>NÚCLEO DOM</h3>
+            <div class="tool-group">
+                <button class="btn-tool" onclick="addElement('header')">_ Instalar Header</button>
+                <button class="btn-tool" onclick="addElement('footer')">_ Instalar Footer</button>
+            </div>
+
+            <h3>TEXTO & LINKS</h3>
+            <div class="tool-group">
+                <button class="btn-tool" onclick="addElement('title')">T_ Título</button>
+                <button class="btn-tool" onclick="addElement('paragraph')">P_ Párrafo</button>
+                <button class="btn-tool" onclick="addElement('list')">L_ Lista</button>
+                <button class="btn-tool" onclick="addElement('link')">A_ Enlace</button>
+            </div>
+
+            <h3>BLOQUES & INPUTS</h3>
+            <div class="tool-group">
+                <button class="btn-tool" onclick="addElement('square')">■ Contenedor</button>
+                <button class="btn-tool" onclick="addElement('button')">⚙ Botón</button>
+                <button class="btn-tool" onclick="addElement('input')">⌨ Entrada</button>
+                <button class="btn-tool" onclick="addElement('table')">📊 Tabla</button>
+            </div>
+
+            <h3>MULTIMEDIA</h3>
+            <div class="tool-group">
+                <button class="btn-tool" onclick="addElement('image')">IMAGE_ Objeto</button>
+                <button class="btn-tool" onclick="addElement('video')">VIDEO_ Stream</button>
+                <button class="btn-tool" onclick="addElement('audio')">AUDIO_ Wave</button>
+            </div>
+
+            <h3>LIENZO CONFIG</h3>
+            <div class="tool-group">
+                <label>Fondo de Matriz</label>
+                <input type="color" id="canvasBgPicker" value="#1e1e24" oninput="updateCanvasBg(this.value)">
+                <label id="heightLabel">Alto Lienzo: 600px</label>
+                <input type="range" id="heightSlider" min="300" max="2000" value="600" oninput="resizeCanvas(this.value)">
+            </div>
+        </div>
+
+        <button id="btnPrint" onclick="generateCode()">&lt;/&gt; COMPILAR CÓDIGO</button>
+    </div>
+
+    <div id="workspace">
+        <div id="canvas-container">
+            <div id="canvas">
+                </div>
+            <div id="canvas-resizer">▲ ▼ ARRASTRAR PARA RESIZE LIENZO ▲ ▼</div>
+        </div>
+
+        <div id="output-container">
+            <div class="output-header">
+                <h3>[ REPOSITORIO COMPILADO ]</h3>
+                <button id="btnCopyClipboard" onclick="copyToClipboard()">[ COPIAR CÓDIGO ]</button>
+            </div>
+            <textarea id="codeOutput" readonly></textarea>
+        </div>
+    </div>
+
+    <div id="hover-edit-btn" class="floating-toolbar">
+        <button class="btn-float-action btn-edit-main" id="mainEditTrigger">EDITAR</button>
+        <button class="btn-float-action" id="fastDuplicateTrigger" title="Duplicar">📑</button>
+        <button class="btn-float-action btn-float-danger" id="fastDeleteTrigger" title="Eliminar">✕</button>
+    </div>
+
+    <div id="measure-tooltip">0px x 0px</div>
+
+    <script src="script.js"></script>
+</body>
+</html>

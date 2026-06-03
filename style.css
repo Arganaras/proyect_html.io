@@ -1,0 +1,438 @@
+/* --- Diseño del Sistema (Hacker Minimalista) --- */
+:root {
+    --bg-workspace: #0d0e11;
+    --bg-sidebar: #131419;
+    --bg-group: #1a1c23;
+    --bg-input: #252833;
+    --text-main: #a9b2c3;
+    --text-active: #00ffcc;
+    --accent: #00ffcc;
+    --danger: #ff5555;
+    --border-color: #252833;
+}
+
+body.light-mode {
+    --bg-workspace: #f4f5f7;
+    --bg-sidebar: #ffffff;
+    --bg-group: #f9fafb;
+    --bg-input: #e4e7eb;
+    --text-main: #4b5563;
+    --text-active: #059669;
+    --accent: #059669;
+    --danger: #ef4444;
+    --border-color: #e5e7eb;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    font-family: 'Courier New', Courier, monospace;
+    font-weight: 600;
+}
+
+body {
+    display: flex;
+    height: 100vh;
+    background-color: var(--bg-workspace);
+    color: var(--text-main);
+    overflow: hidden;
+    position: relative;
+    transition: background-color 0.2s ease;
+}
+
+/* --- Panel de Herramientas Estilo Consola --- */
+#sidebar {
+    width: 290px;
+    background-color: var(--bg-sidebar);
+    border-right: 1px solid var(--border-color);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    z-index: 10;
+}
+
+.sidebar-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+#sidebar h2 {
+    font-size: 1rem;
+    color: var(--text-active);
+    letter-spacing: 1px;
+}
+
+#sidebar h3 {
+    font-size: 0.75rem;
+    color: var(--text-main);
+    margin-bottom: 8px;
+    margin-top: 15px;
+    letter-spacing: 1px;
+}
+
+.scroller-tools {
+    flex-grow: 1;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
+/* Ocultar barra scroll para aspecto más limpio */
+.scroller-tools::-webkit-scrollbar { width: 4px; }
+.scroller-tools::-webkit-scrollbar-thumb { background: var(--border-color); }
+
+.tool-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+button.btn-tool {
+    background-color: var(--bg-group);
+    color: var(--text-main);
+    border: 1px solid var(--border-color);
+    padding: 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    text-align: left;
+    font-size: 0.75rem;
+    transition: all 0.15s ease;
+}
+
+button.btn-tool:hover {
+    background-color: var(--bg-input);
+    color: var(--text-active);
+    border-color: var(--accent);
+}
+
+#themeToggleBtn {
+    background: none;
+    border: none;
+    font-size: 1.1rem;
+    cursor: pointer;
+}
+
+label {
+    font-size: 0.7rem;
+    color: var(--text-main);
+    margin-top: 6px;
+}
+
+input[type="color"], input[type="range"], input[type="number"], select {
+    width: 100%;
+}
+
+input[type="color"] {
+    height: 28px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+    border-radius: 2px;
+}
+
+input[type="number"], select {
+    height: 30px;
+    background: var(--bg-group);
+    color: var(--text-main);
+    border: 1px solid var(--border-color);
+    padding-left: 5px;
+    font-size: 0.75rem;
+}
+
+#btnPrint {
+    background-color: transparent;
+    color: var(--text-active);
+    border: 1px solid var(--text-active);
+    padding: 12px;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+#btnPrint:hover {
+    background-color: var(--text-active);
+    color: #000;
+    box-shadow: 0 0 15px var(--text-active);
+}
+
+/* --- Panel de Edición Lateral Deslizante --- */
+#edit-sidebar {
+    position: absolute;
+    left: -310px;
+    top: 0;
+    width: 290px;
+    height: 100vh;
+    background-color: var(--bg-sidebar);
+    border-right: 1px solid var(--accent);
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    z-index: 99;
+    overflow-y: auto;
+    transition: left 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+#edit-sidebar.active {
+    left: 0;
+}
+
+.edit-sidebar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px dashed var(--border-color);
+    padding-bottom: 10px;
+}
+
+.neon-text { color: var(--accent); }
+
+#close-edit-sidebar {
+    background: transparent;
+    border: none;
+    color: var(--text-main);
+    cursor: pointer;
+    font-size: 1rem;
+}
+
+.edit-group {
+    background-color: var(--bg-group);
+    padding: 12px;
+    border-radius: 4px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    border: 1px solid var(--border-color);
+}
+
+.btn-sidebar-action {
+    flex: 1;
+    padding: 8px;
+    border: 1px solid var(--border-color);
+    background: var(--bg-input);
+    color: var(--text-main);
+    cursor: pointer;
+    font-size: 0.75rem;
+}
+
+.btn-sidebar-action:hover { 
+    border-color: var(--accent);
+    color: var(--text-active);
+}
+
+.btn-sidebar-action.btn-danger:hover { 
+    background: var(--danger);
+    color: white;
+    border-color: var(--danger);
+}
+
+/* --- Barra Flotante Ultra-Limpia --- */
+.floating-toolbar {
+    position: absolute;
+    z-index: 90;
+    background: var(--bg-sidebar);
+    border: 1px solid var(--accent);
+    padding: 3px;
+    border-radius: 4px;
+    display: flex;
+    gap: 3px;
+    
+    opacity: 0;
+    pointer-events: none;
+    transform: translateY(4px);
+    transition: opacity 0.15s ease, transform 0.15s ease;
+}
+
+.floating-toolbar.show {
+    opacity: 1;
+    pointer-events: auto;
+    transform: translateY(0);
+}
+
+.btn-float-action {
+    background: var(--bg-group);
+    color: var(--text-main);
+    border: 1px solid var(--border-color);
+    padding: 6px 12px;
+    font-size: 0.7rem;
+    cursor: pointer;
+}
+
+.btn-float-action:hover {
+    border-color: var(--accent);
+    color: var(--text-active);
+}
+
+.btn-float-action.btn-edit-main {
+    background: var(--bg-input);
+    color: var(--text-active);
+}
+
+.btn-float-action.btn-float-danger:hover {
+    background: var(--danger);
+    color: white;
+}
+
+/* --- Tooltip de Medidas Minimalista --- */
+#measure-tooltip {
+    position: absolute;
+    z-index: 95;
+    background: #000;
+    color: var(--accent);
+    border: 1px solid var(--accent);
+    padding: 4px 8px;
+    font-size: 0.65rem;
+    pointer-events: none;
+    opacity: 0;
+    transition: opacity 0.1s ease;
+}
+
+#measure-tooltip.show { opacity: 1; }
+
+/* --- Área del Lienzo Absoluto --- */
+#workspace {
+    flex-grow: 1;
+    padding: 40px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    overflow-y: auto;
+}
+
+#canvas-container {
+    position: relative;
+    width: 850px;
+}
+
+#canvas {
+    width: 100%;
+    height: 600px;
+    background-color: #ffffff;
+    position: relative;
+    box-shadow: 0 0 30px rgba(0,0,0,0.05);
+    border: 1px solid var(--border-color);
+}
+
+/* Modo hacker oscurece ligeramente la mesa de dibujo si no tiene fondo seteado */
+body.dark-mode #canvas {
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+}
+
+#canvas-resizer {
+    width: 100%;
+    height: 14px;
+    background: var(--bg-sidebar);
+    border: 1px solid var(--border-color);
+    border-top: none;
+    cursor: ns-resize;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.6rem;
+    letter-spacing: 1px;
+}
+
+/* --- Elementos Interactivos Avanzados (8 Puntos Estilo Canva) --- */
+.generated-element {
+    position: absolute;
+    left: 0px;  /* Comienza exactamente desde los bordes sin márgenes */
+    top: 0px;
+    padding: 0;
+    border: 1px solid transparent;
+    cursor: move;
+    user-select: none;
+    display: inline-block;
+    transform-origin: center center;
+}
+
+.smooth-move {
+    transition: left 0.18s cubic-bezier(0.2, 1, 0.2, 1), top 0.18s cubic-bezier(0.2, 1, 0.2, 1);
+}
+
+.generated-element.selected {
+    border: 1px solid var(--accent);
+}
+
+.inner-content {
+    outline: none;
+    display: block;
+    word-break: break-word;
+}
+
+/* --- Los 8 Controladores Perimetrales de Redimensionamiento --- */
+.resize-dot {
+    position: absolute;
+    width: 7px;
+    height: 7px;
+    background: var(--bg-sidebar);
+    border: 1px solid var(--accent);
+    display: none;
+    z-index: 100;
+}
+
+/* Mostrar solo cuando el elemento esté seleccionado */
+.generated-element.selected .resize-dot {
+    display: block;
+}
+
+/* Posiciones Esquinas */
+.rd-tl { top: -4px; left: -4px; cursor: nwse-resize; }
+.rd-tr { top: -4px; right: -4px; cursor: nesw-resize; }
+.rd-bl { bottom: -4px; left: -4px; cursor: nesw-resize; }
+.rd-br { bottom: -4px; right: -4px; cursor: nwse-resize; }
+
+/* Posiciones Centros Laterales */
+.rd-tc { top: -4px; left: calc(50% - 3.5px); cursor: ns-resize; }
+.rd-bc { bottom: -4px; left: calc(50% - 3.5px); cursor: ns-resize; }
+.rd-lc { top: calc(50% - 3.5px); left: -4px; cursor: ew-resize; }
+.rd-rc { top: calc(50% - 3.5px); right: -4px; cursor: ew-resize; }
+
+/* Caja de Código inferior */
+#output-container { 
+    width: 850px; 
+    margin-top: 30px; 
+    display: none; 
+}
+
+textarea { 
+    width: 100%; 
+    height: 180px; 
+    background: #000; 
+    color: #00ff66; 
+    padding: 15px; 
+    border: 1px solid var(--border-color);
+}
+
+/* Cabecera del área de código */
+.output-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+#btnCopyClipboard {
+    background: transparent;
+    color: #ff00ff;
+    border: 1px solid #ff00ff;
+    padding: 6px 12px;
+    cursor: pointer;
+    font-size: 0.75rem;
+    transition: all 0.2s ease;
+}
+
+#btnCopyClipboard:hover {
+    background: #ff00ff;
+    color: #000;
+    box-shadow: 0 0 10px #ff00ff;
+}
+
+/* Estado de éxito temporal */
+#btnCopyClipboard.copied {
+    color: #00ffcc;
+    border-color: #00ffcc;
+    box-shadow: 0 0 10px #00ffcc;
+}
