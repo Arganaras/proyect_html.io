@@ -1,537 +1,1076 @@
-const canvas = document.getElementById('canvas');
-const workspace = document.getElementById('workspace');
-const heightSlider = document.getElementById('heightSlider');
-const heightLabel = document.getElementById('heightLabel');
-const outputContainer = document.getElementById('output-container');
-const codeOutput = document.getElementById('codeOutput');
-const canvasResizer = document.getElementById('canvas-resizer');
+/**
+ * ==========================================================================
+ * VISUAL PAGE BUILDER PRO V2 - LÓGICA PRINCIPAL (APP CORE)
+ * ==========================================================================
+ */
 
-const editSidebar = document.getElementById('edit-sidebar');
-const closeEditBtn = document.getElementById('close-edit-sidebar');
-const hoverEditBtn = document.getElementById('hover-edit-btn');
-const measureTooltip = document.getElementById('measure-tooltip');
+// 1. ESTADO GLOBAL DE LA APLICACIÓN (STATE MANAGEMENT)
+const AppState = {
+    project: {
+        name: "Landing Page Principal",
+        device: "desktop", // desktop | laptop | tablet | mobile
+        canvasWidth: 1440,
+        zoom: 100,
+        theme: "dark"
+    },
+    canvas: {
+        elements: [], // Array de objetos con la data de cada elemento
+        selectedId: null, // ID del elemento actualmente seleccionado
+        hoveredId: null,
+        counter: 0 // Para generar IDs únicos
+    },
+    history: {
+        past: [], // Pila de Undo
+        future: [] // Pila de Redo
+    },
+    drag: {
+        isDragging: false,
+        element: null,
+        startX: 0,
+        startY: 0,
+        initialLeft: 0,
+        initialTop: 0,
+        isResizing: false,
+        handle: null
+    },
+    config: {
+        snapGrid: 20, // Snapping a grilla de 20px
+        snapTolerance: 10
+    }
+};
 
-const mainEditTrigger = document.getElementById('mainEditTrigger');
-const fastDuplicateTrigger = document.getElementById('fastDuplicateTrigger');
-const fastDeleteTrigger = document.getElementById('fastDeleteTrigger');
+// 2. INICIALIZACIÓN Y CARGA
+document.addEventListener("DOMContentLoaded", () => {
+    // Renderizar iconos de Lucide (SVG Inyección)
+    lucide.createIcons();
 
-const textEditSection = document.getElementById('text-edit-section');
-const boxEditSection = document.getElementById('box-edit-section');
-const floatColor = document.getElementById('floatColor');
-const floatFont = document.getElementById('floatFont');
-const floatSize = document.getElementById('floatSize');
-const floatBgColor = document.getElementById('floatBgColor');
-const floatRadius = document.getElementById('floatRadius');
-const floatBorder = document.getElementById('floatBorder');
-const floatBorderColor = document.getElementById('floatBorderColor');
-const floatShadow = document.getElementById('floatShadow');
-const floatRotate = document.getElementById('floatRotate');
-const floatOpacity = document.getElementById('floatOpacity');
-const floatDelete = document.getElementById('floatDelete');
-const floatDuplicate = document.getElementById('floatDuplicate');
+    // Simular carga de módulos
+    simulateAppLoading();
+    
+    // Inicializar Módulos Principales
+    initUIEvents();
+    initDragAndDrop();
+    initCanvasInteractions();
+    initPropertiesPanel();
+    initKeyboardShortcuts();
+    initContextMenu();
+    
+    // Guardar estado inicial en el historial
+    saveHistoryState();
+});
 
-// Estado global de la aplicación
-let selectedElements = []; 
-let copiedElementsData = []; 
-let isDragging = false;
-let currentResizerDot = null; 
+function simulateAppLoading() {
+    const loader = document.getElementById('loadingScreen');
+    const progress = document.getElementById('loadProgress');
+    const text = document.getElementById('loadText');
+    
+    let percent = 0;
+    const interval = setInterval(() => {
+        percent += Math.floor(Math.random() * 15) + 5;
+        if (percent > 100) percent = 100;
+        
+        progress.style.width = `${percent}%`;
+        
+        if (percent < 30) text.innerText = "Cargando motor de renderizado...";
+        else if (percent < 60) text.innerText = "Inicializando eventos del DOM...";
+        else if (percent < 90) text.innerText = "Configurando panel de propiedades...";
+        else text.innerText = "¡Listo!";
+        
+        if (percent === 100) {
+            clearInterval(interval);
+            setTimeout(() => {
+                loader.classList.add('hidden');
+                document.body.classList.remove('editor-loading');
+                showToast("Entorno de trabajo cargado correctamente", "success");
+            }, 500);
+        }
+    }, 150);
+}
 
-let dragPositions = []; 
-let initW, initH, initL, initT, initX, initY;
+// 3. EVENTOS DE INTERFAZ GENERAL (UI)
+function initUIEvents() {
+    // Cambio de Tema (Oscuro/Claro)
+    document.getElementById('btnThemeToggle').addEventListener('click', () => {
+        document.body.classList.toggle('theme-light');
+        AppState.project.theme = document.body.classList.contains('theme-light') ? 'light' : 'dark';
+        showToast(`Tema cambiado a ${AppState.project.theme === 'light' ? 'Claro' : 'Oscuro'}`);
+    });
 
-const PX_TO_CM = 37.8;
+    // Pestañas del Sidebar Izquierdo
+    document.querySelectorAll('.tab-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.panel-section').forEach(p => p.classList.remove('active'));
+            
+            const targetId = e.currentTarget.getAttribute('data-target');
+            e.currentTarget.classList.add('active');
+            document.getElementById(targetId).classList.add('active');
+            
+            if (targetId === 'panel-layers') updateLayersPanel();
+        });
+    });
 
-// --- CAMBIO DE TEMA (MODO DÍA / NOCHE HACKER) ---
-function toggleTheme() {
-    const body = document.body;
-    const btn = document.getElementById('themeToggleBtn');
-    if (body.classList.contains('dark-mode')) {
-        body.classList.remove('dark-mode');
-        body.classList.add('light-mode');
-        btn.innerText = '🌙';
+    // Acordeones del Panel de Elementos
+    document.querySelectorAll('.accordion-header').forEach(header => {
+        header.addEventListener('click', () => {
+            const item = header.parentElement;
+            item.classList.toggle('active');
+        });
+    });
+
+    // Pestañas del Panel de Propiedades
+    document.querySelectorAll('.prop-tab').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            document.querySelectorAll('.prop-tab').forEach(b => b.classList.remove('active'));
+            document.querySelectorAll('.prop-pane').forEach(p => p.classList.remove('active'));
+            
+            const targetId = e.currentTarget.getAttribute('data-tab');
+            e.currentTarget.classList.add('active');
+            document.getElementById(targetId).classList.add('active');
+        });
+    });
+
+    // Cambio de Dispositivo (Resolución del Canvas)
+    document.querySelectorAll('.device-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            document.querySelectorAll('.device-btn').forEach(b => b.classList.remove('active'));
+            const targetBtn = e.currentTarget;
+            targetBtn.classList.add('active');
+            
+            const device = targetBtn.getAttribute('data-device');
+            AppState.project.device = device;
+            
+            const canvas = document.getElementById('mainCanvas');
+            const display = document.getElementById('canvasDimensionsDisplay');
+            
+            switch(device) {
+                case 'desktop': canvas.style.width = '1440px'; display.innerText = '1440 x 900 px'; break;
+                case 'laptop': canvas.style.width = '1024px'; display.innerText = '1024 x 768 px'; break;
+                case 'tablet': canvas.style.width = '768px'; display.innerText = '768 x 1024 px'; break;
+                case 'mobile': canvas.style.width = '390px'; display.innerText = '390 x 844 px'; break;
+            }
+            
+            showToast(`Resolución adaptada para ${device}`);
+        });
+    });
+
+    // Controles de Zoom
+    document.getElementById('btnZoomIn').addEventListener('click', () => setZoom(AppState.project.zoom + 10));
+    document.getElementById('btnZoomOut').addEventListener('click', () => setZoom(AppState.project.zoom - 10));
+    document.getElementById('btnZoomReset').addEventListener('click', () => setZoom(100));
+
+    // Exportación Modal
+    document.getElementById('btnExportCode').addEventListener('click', generateExportCode);
+    document.getElementById('btnCloseExport').addEventListener('click', () => document.getElementById('modalExport').style.display = 'none');
+    document.getElementById('btnCancelExport').addEventListener('click', () => document.getElementById('modalExport').style.display = 'none');
+    document.getElementById('btnDownloadZip').addEventListener('click', () => {
+        showToast("Generando archivo ZIP simulado...", "success");
+        setTimeout(() => document.getElementById('modalExport').style.display = 'none', 1000);
+    });
+
+    // Guardado (Simulado)
+    document.getElementById('btnSaveSimulated').addEventListener('click', () => {
+        const btn = document.getElementById('btnSaveSimulated');
+        const originalHtml = btn.innerHTML;
+        btn.innerHTML = `<i data-lucide="loader-2" class="spin-icon" style="width:16px; height:16px; color:white;"></i> Guardando...`;
+        lucide.createIcons();
+        
+        // Simular llamada a API
+        setTimeout(() => {
+            btn.innerHTML = originalHtml;
+            showToast("Proyecto guardado correctamente en la base de datos", "success");
+            const d = new Date();
+            document.getElementById('projectStatus').innerHTML = `<i data-lucide="check-circle-2"></i> Guardado ${d.getHours()}:${d.getMinutes()}`;
+            lucide.createIcons();
+        }, 1500);
+    });
+
+    // Deshacer / Rehacer botones globales
+    document.getElementById('btnUndoGlobal').addEventListener('click', undo);
+    document.getElementById('btnRedoGlobal').addEventListener('click', redo);
+}
+
+function setZoom(level) {
+    if (level < 20) level = 20;
+    if (level > 200) level = 200;
+    AppState.project.zoom = level;
+    
+    document.getElementById('zoomLevelDisplay').innerText = `${level}%`;
+    const canvas = document.getElementById('mainCanvas');
+    canvas.style.transform = `scale(${level / 100})`;
+    
+    // Reposicionar menús si es necesario
+}
+
+// 4. DRAG AND DROP DESDE SIDEBAR AL CANVAS
+function initDragAndDrop() {
+    const draggables = document.querySelectorAll('.draggable-el, .draggable-block');
+    const canvas = document.getElementById('mainCanvas');
+    const canvasArea = document.getElementById('canvasScrollArea');
+
+    draggables.forEach(item => {
+        item.addEventListener('dragstart', (e) => {
+            e.dataTransfer.setData('element_type', item.getAttribute('data-type'));
+            e.dataTransfer.effectAllowed = 'copy';
+        });
+    });
+
+    canvasArea.addEventListener('dragover', (e) => {
+        e.preventDefault(); // Necesario para permitir el drop
+        e.dataTransfer.dropEffect = 'copy';
+    });
+
+    canvasArea.addEventListener('drop', (e) => {
+        e.preventDefault();
+        const type = e.dataTransfer.getData('element_type');
+        if (!type) return;
+
+        // Calcular posición relativa al canvas considerando el zoom y scroll
+        const rect = canvas.getBoundingClientRect();
+        const scale = AppState.project.zoom / 100;
+        
+        let x = (e.clientX - rect.left) / scale;
+        let y = (e.clientY - rect.top) / scale;
+
+        // Snapping a grilla inicial
+        x = Math.round(x / AppState.config.snapGrid) * AppState.config.snapGrid;
+        y = Math.round(y / AppState.config.snapGrid) * AppState.config.snapGrid;
+
+        createElementOnCanvas(type, x, y);
+    });
+}
+
+// 5. CREACIÓN DE ELEMENTOS
+function createElementOnCanvas(type, x, y) {
+    // Ocultar estado vacío
+    const emptyState = document.getElementById('canvasEmptyState');
+    if (emptyState) emptyState.style.display = 'none';
+
+    AppState.canvas.counter++;
+    const id = `el_${type.replace('-', '_')}_${AppState.canvas.counter}`;
+    
+    // Crear objeto de datos (Virtual DOM)
+    const elementData = {
+        id: id,
+        type: type,
+        name: `${type} ${AppState.canvas.counter}`,
+        locked: false,
+        style: {
+            left: `${x}px`,
+            top: `${y}px`,
+            width: getDefaultWidth(type),
+            height: getDefaultHeight(type),
+            backgroundColor: getDefaultColor(type),
+            color: type.includes('text') || type.includes('button') ? '#0f172a' : '',
+            fontSize: type.includes('heading') ? '32px' : '16px',
+            fontWeight: '400',
+            borderRadius: type.includes('button') ? '6px' : '0px',
+            borderWidth: '0px',
+            borderColor: '#000000',
+            borderStyle: 'none',
+            paddingTop: '0px', paddingRight: '0px', paddingBottom: '0px', paddingLeft: '0px',
+            opacity: '1',
+            zIndex: AppState.canvas.elements.length + 1
+        },
+        content: getDefaultContent(type),
+        attributes: {
+            customClasses: '',
+            href: type === 'text-link' ? '#' : '',
+            src: type === 'media-image' ? 'https://via.placeholder.com/300x200' : ''
+        }
+    };
+
+    AppState.canvas.elements.push(elementData);
+    
+    // Crear nodo DOM real
+    renderElementToCanvas(elementData);
+    
+    // Guardar estado y seleccionar
+    saveHistoryState();
+    selectElement(id);
+    updateLayersPanel();
+    updateFooterStats();
+}
+
+// Funciones Auxiliares para valores por defecto según tipo
+function getDefaultWidth(type) {
+    if (type.includes('section') || type.includes('block')) return '100%';
+    if (type.includes('button')) return '120px';
+    if (type.includes('image')) return '300px';
+    return '250px';
+}
+function getDefaultHeight(type) {
+    if (type.includes('section')) return '300px';
+    if (type.includes('button')) return '45px';
+    if (type.includes('image')) return '200px';
+    return 'auto';
+}
+function getDefaultColor(type) {
+    if (type.includes('button')) return '#3b82f6'; // Primary blue
+    if (type.includes('section') || type.includes('container')) return '#f8fafc';
+    return 'transparent';
+}
+function getDefaultContent(type) {
+    if (type === 'text-heading') return 'Doble click para editar título';
+    if (type === 'text-paragraph') return 'Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore.';
+    if (type === 'form-button') return 'Enviar';
+    if (type.includes('block-hero')) return '<h1 style="font-size:48px; margin-bottom:20px;">Hero Section</h1><p>Subtítulo de la sección principal.</p><button style="padding:12px 24px; background:#3b82f6; color:white; border:none; border-radius:6px; cursor:pointer; margin-top:20px;">Llamada a la acción</button>';
+    return '';
+}
+
+function renderElementToCanvas(data) {
+    const canvas = document.getElementById('mainCanvas');
+    
+    const el = document.createElement('div');
+    el.id = data.id;
+    el.className = `vpb-element type-${data.type} ${data.attributes.customClasses}`;
+    
+    // Aplicar estilos
+    applyStylesToNode(el, data.style);
+    
+    // Aplicar contenido especial según tipo
+    if (data.type === 'media-image') {
+        el.innerHTML = `<img src="${data.attributes.src}" style="width:100%; height:100%; object-fit:cover; pointer-events:none;" />`;
     } else {
-        body.classList.remove('light-mode');
-        body.classList.add('dark-mode');
-        btn.innerText = '☀️';
+        el.innerHTML = data.content;
+    }
+
+    // Añadir Handles de resize (8 puntos)
+    const handles = ['nw', 'ne', 'sw', 'se', 'n', 's', 'e', 'w'];
+    handles.forEach(pos => {
+        const h = document.createElement('div');
+        h.className = `resize-handle ${pos}`;
+        h.setAttribute('data-handle', pos);
+        el.appendChild(h);
+    });
+
+    canvas.appendChild(el);
+}
+
+function applyStylesToNode(node, styles) {
+    for (const [key, value] of Object.entries(styles)) {
+        node.style[key] = value;
     }
 }
 
-// Atajos del teclado (Ctrl+C / Ctrl+V)
-let isCtrlPressed = false;
-window.addEventListener('keydown', (e) => {
-    if (e.key === 'Control' || e.key === 'Meta') isCtrlPressed = true;
-    if (document.activeElement && document.activeElement.getAttribute('contenteditable') === 'true') return;
+// 6. INTERACCIÓN EN EL CANVAS (SELECCIÓN, DRAG, RESIZE)
+function initCanvasInteractions() {
+    const canvas = document.getElementById('mainCanvas');
+    const wrapper = document.getElementById('canvasScrollArea');
 
-    if (isCtrlPressed && e.key.toLowerCase() === 'c') copySelected();
-    if (isCtrlPressed && e.key.toLowerCase() === 'v') pasteSelected();
-});
+    // Mousedown Global (Delegación de eventos)
+    wrapper.addEventListener('mousedown', (e) => {
+        // Ignorar si es click derecho (eso abre el context menu)
+        if (e.button !== 0) return;
 
-window.addEventListener('keyup', (e) => {
-    if (e.key === 'Control' || e.key === 'Meta') isCtrlPressed = false;
-});
-
-// --- ARRASTRE LIBRE SIN MÁRGENES Y REDIMENSIONAMIENTO (8 PUNTOS) ---
-canvas.addEventListener('mousedown', (e) => {
-    const dot = e.target.closest('.resize-dot');
-    const targetEl = e.target.closest('.generated-element');
-
-    if (dot) {
-        currentResizerDot = dot;
-        const activeEl = dot.parentElement;
-        if (!selectedElements.includes(activeEl)) selectElement(activeEl);
+        const target = e.target;
         
-        initW = activeEl.offsetWidth;
-        initH = activeEl.offsetHeight;
-        initL = parseFloat(activeEl.style.left || 0);
-        initT = parseFloat(activeEl.style.top || 0);
-        
-        initX = e.clientX;
-        initY = e.clientY;
-        
+        // Clic en el canvas vacío deselecciona
+        if (target.id === 'mainCanvas' || target.id === 'canvasScrollArea') {
+            deselectAll();
+            return;
+        }
+
+        // Clic en un elemento del canvas
+        const elementNode = target.closest('.vpb-element');
+        if (elementNode) {
+            e.stopPropagation(); // Evitar que burbujee al canvas vacío
+            const id = elementNode.id;
+            
+            // Si el elemento está bloqueado, no hacer nada a menos que se fuerce desde capas
+            const data = AppState.canvas.elements.find(el => el.id === id);
+            if (data && data.locked) return;
+
+            selectElement(id);
+
+            // Determinar si es drag o resize
+            if (target.classList.contains('resize-handle')) {
+                startResize(e, elementNode, target.getAttribute('data-handle'));
+            } else {
+                startDrag(e, elementNode);
+            }
+        }
+    });
+
+    // Menú Contextual
+    wrapper.addEventListener('contextmenu', (e) => {
         e.preventDefault();
-        e.stopPropagation();
-        showTooltipMedidas(activeEl);
-    } 
-    else if (targetEl) {
-        selectElement(targetEl);
-        targetEl.classList.remove('smooth-move'); 
+        const elementNode = e.target.closest('.vpb-element');
+        if (elementNode) {
+            selectElement(elementNode.id);
+            showContextMenu(e.clientX, e.clientY);
+        } else {
+            deselectAll();
+            hideContextMenu();
+        }
+    });
+}
 
-        isDragging = true;
-        dragPositions = selectedElements.map(el => ({
-            element: el,
-            offsetX: e.clientX - parseFloat(el.style.left || 0),
-            offsetY: e.clientY - parseFloat(el.style.top || 0)
-        }));
-        showTooltipMedidas(targetEl);
-    } 
-    else if (e.target === canvas) {
-        unselectAll();
+function selectElement(id) {
+    if (AppState.canvas.selectedId === id) return; // Ya seleccionado
+    
+    // Limpiar selección previa UI
+    document.querySelectorAll('.vpb-element').forEach(el => el.classList.remove('selected'));
+    
+    AppState.canvas.selectedId = id;
+    
+    if (id) {
+        const node = document.getElementById(id);
+        if (node) node.classList.add('selected');
+        
+        // Actualizar UI
+        const data = AppState.canvas.elements.find(el => el.id === id);
+        if (data) {
+            document.getElementById('selectedElementType').innerText = data.type.toUpperCase();
+            document.getElementById('propsEmptyState').style.display = 'none';
+            document.getElementById('propsContent').style.display = 'block';
+            
+            // Actualizar breadcrumbs
+            document.getElementById('elementBreadcrumbs').innerHTML = `
+                <span>Body</span> <i data-lucide="chevron-right"></i>
+                <span class="active-crumb">${data.name}</span>
+            `;
+            lucide.createIcons();
+
+            populatePropertiesPanel(data);
+        }
     }
-});
+}
 
-window.addEventListener('mousemove', (e) => {
-    const canvasW = canvas.clientWidth;
-    const canvasH = canvas.clientHeight;
+function deselectAll() {
+    AppState.canvas.selectedId = null;
+    document.querySelectorAll('.vpb-element').forEach(el => el.classList.remove('selected'));
+    
+    document.getElementById('selectedElementType').innerText = 'Ninguno';
+    document.getElementById('propsEmptyState').style.display = 'block';
+    document.getElementById('propsContent').style.display = 'none';
+    
+    document.getElementById('elementBreadcrumbs').innerHTML = `
+        <span>Body</span> <i data-lucide="chevron-right"></i>
+        <span class="active-crumb">Selecciona un elemento</span>
+    `;
+    lucide.createIcons();
+    hideContextMenu();
+}
 
-    // 1. Lógica de Arrastre Líquido (Mover libremente por todo el lienzo)
-    if (isDragging && selectedElements.length > 0) {
-        selectedElements.forEach(target => {
-            const dragData = dragPositions.find(d => d.element === target);
-            if (dragData) {
-                let nLeft = e.clientX - dragData.offsetX;
-                let nTop = e.clientY - dragData.offsetY;
+// Lógica de Movimiento (Arrastre) en Canvas
+function startDrag(e, node) {
+    AppState.drag.isDragging = true;
+    AppState.drag.element = node;
+    AppState.drag.startX = e.clientX;
+    AppState.drag.startY = e.clientY;
+    
+    // Parsear posiciones actuales
+    AppState.drag.initialLeft = parseFloat(node.style.left) || 0;
+    AppState.drag.initialTop = parseFloat(node.style.top) || 0;
 
-                const elW = target.offsetWidth;
-                const elH = target.offsetHeight;
+    document.addEventListener('mousemove', handleDrag);
+    document.addEventListener('mouseup', stopDrag);
+}
 
-                // Restricción perimetral estricta (0 a ancho/alto total del lienzo)
-                if (nLeft < 0) nLeft = 0;
-                if (nTop < 0) nTop = 0;
-                if (nLeft + elW > canvasW) nLeft = canvasW - elW;
-                if (nTop + elH > canvasH) nTop = canvasH - elH;
+function handleDrag(e) {
+    if (!AppState.drag.isDragging) return;
 
-                target.style.left = nLeft + "px";
-                target.style.top = nTop + "px";
-                
-                showTooltipMedidas(target);
+    const scale = AppState.project.zoom / 100;
+    const dx = (e.clientX - AppState.drag.startX) / scale;
+    const dy = (e.clientY - AppState.drag.startY) / scale;
+
+    let newLeft = AppState.drag.initialLeft + dx;
+    let newTop = AppState.drag.initialTop + dy;
+
+    // Lógica de Snapping a Grid
+    const snap = AppState.config.snapGrid;
+    const tol = AppState.config.snapTolerance;
+    
+    const modLeft = newLeft % snap;
+    const modTop = newTop % snap;
+
+    const guideV = document.getElementById('guideV');
+    const guideH = document.getElementById('guideH');
+
+    if (Math.abs(modLeft) < tol || Math.abs(modLeft - snap) < tol) {
+        newLeft = Math.round(newLeft / snap) * snap;
+        guideV.style.display = 'block';
+        guideV.style.left = `${newLeft}px`;
+    } else {
+        guideV.style.display = 'none';
+    }
+
+    if (Math.abs(modTop) < tol || Math.abs(modTop - snap) < tol) {
+        newTop = Math.round(newTop / snap) * snap;
+        guideH.style.display = 'block';
+        guideH.style.top = `${newTop}px`;
+    } else {
+        guideH.style.display = 'none';
+    }
+
+    AppState.drag.element.style.left = `${newLeft}px`;
+    AppState.drag.element.style.top = `${newTop}px`;
+
+    // Actualizar Panel de propiedades en vivo
+    document.getElementById('propX').value = Math.round(newLeft);
+    document.getElementById('propY').value = Math.round(newTop);
+}
+
+function stopDrag() {
+    if (!AppState.drag.isDragging) return;
+    
+    document.removeEventListener('mousemove', handleDrag);
+    document.removeEventListener('mouseup', stopDrag);
+    
+    document.getElementById('guideV').style.display = 'none';
+    document.getElementById('guideH').style.display = 'none';
+    
+    // Guardar en el state Virtual DOM
+    const id = AppState.drag.element.id;
+    const data = AppState.canvas.elements.find(el => el.id === id);
+    if (data) {
+        data.style.left = AppState.drag.element.style.left;
+        data.style.top = AppState.drag.element.style.top;
+        saveHistoryState();
+    }
+
+    AppState.drag.isDragging = false;
+    AppState.drag.element = null;
+}
+
+// Lógica de Redimensionamiento
+function startResize(e, node, handle) {
+    AppState.drag.isResizing = true;
+    AppState.drag.element = node;
+    AppState.drag.handle = handle;
+    AppState.drag.startX = e.clientX;
+    AppState.drag.startY = e.clientY;
+    
+    const rect = node.getBoundingClientRect();
+    AppState.drag.initialWidth = node.offsetWidth;
+    AppState.drag.initialHeight = node.offsetHeight;
+    AppState.drag.initialLeft = parseFloat(node.style.left) || 0;
+    AppState.drag.initialTop = parseFloat(node.style.top) || 0;
+
+    document.addEventListener('mousemove', handleResize);
+    document.addEventListener('mouseup', stopResize);
+}
+
+function handleResize(e) {
+    if (!AppState.drag.isResizing) return;
+    
+    const scale = AppState.project.zoom / 100;
+    const dx = (e.clientX - AppState.drag.startX) / scale;
+    const dy = (e.clientY - AppState.drag.startY) / scale;
+    
+    const node = AppState.drag.element;
+    const handle = AppState.drag.handle;
+    
+    let newWidth = AppState.drag.initialWidth;
+    let newHeight = AppState.drag.initialHeight;
+    let newLeft = AppState.drag.initialLeft;
+    let newTop = AppState.drag.initialTop;
+
+    if (handle.includes('e')) newWidth += dx;
+    if (handle.includes('s')) newHeight += dy;
+    if (handle.includes('w')) {
+        newWidth -= dx;
+        newLeft += dx;
+    }
+    if (handle.includes('n')) {
+        newHeight -= dy;
+        newTop += dy;
+    }
+
+    // Límites mínimos
+    if (newWidth < 20) { newWidth = 20; if (handle.includes('w')) newLeft = AppState.drag.initialLeft + (AppState.drag.initialWidth - 20); }
+    if (newHeight < 20) { newHeight = 20; if (handle.includes('n')) newTop = AppState.drag.initialTop + (AppState.drag.initialHeight - 20); }
+
+    node.style.width = `${newWidth}px`;
+    node.style.height = `${newHeight}px`;
+    node.style.left = `${newLeft}px`;
+    node.style.top = `${newTop}px`;
+
+    // Actualizar Panel
+    document.getElementById('propW').value = Math.round(newWidth);
+    document.getElementById('propH').value = Math.round(newHeight);
+    document.getElementById('propX').value = Math.round(newLeft);
+    document.getElementById('propY').value = Math.round(newTop);
+}
+
+function stopResize() {
+    if (!AppState.drag.isResizing) return;
+    document.removeEventListener('mousemove', handleResize);
+    document.removeEventListener('mouseup', stopResize);
+    
+    const id = AppState.drag.element.id;
+    const data = AppState.canvas.elements.find(el => el.id === id);
+    if (data) {
+        data.style.width = AppState.drag.element.style.width;
+        data.style.height = AppState.drag.element.style.height;
+        data.style.left = AppState.drag.element.style.left;
+        data.style.top = AppState.drag.element.style.top;
+        saveHistoryState();
+    }
+    
+    AppState.drag.isResizing = false;
+    AppState.drag.element = null;
+    AppState.drag.handle = null;
+}
+
+// 7. PANEL DE PROPIEDADES (BINDING DE DATOS)
+function initPropertiesPanel() {
+    // Vincular todos los inputs con atributo data-css a la actualización del elemento
+    const inputs = document.querySelectorAll('#propsContent input, #propsContent select');
+    
+    inputs.forEach(input => {
+        input.addEventListener('input', (e) => {
+            if (!AppState.canvas.selectedId) return;
+            
+            const prop = e.target.getAttribute('data-css');
+            if (!prop) return;
+
+            let val = e.target.value;
+            // Si es un input numérico y necesita 'px' (ancho, alto, bordes, padding)
+            if (e.target.type === 'number' && !['opacity', 'fontWeight', 'zIndex'].includes(prop)) {
+                val = val + 'px';
+            }
+
+            updateActiveElementStyle(prop, val);
+            
+            // Sincronizar Hex text con Color Picker
+            if (e.target.type === 'color') {
+                const hexInput = document.getElementById(`${e.target.id}Hex`);
+                if(hexInput) hexInput.value = val.toUpperCase();
             }
         });
-        updateEditButtonPosition();
-    } 
-    // 2. Lógica de Redimensionamiento de 8 Puntos (Estilo Canva)
-    else if (currentResizerDot && selectedElements.length > 0) {
-        const activeEl = selectedElements[selectedElements.length - 1];
-        const inner = activeEl.querySelector('.inner-content');
-        const dotType = currentResizerDot.classList[1]; 
-
-        let diffX = e.clientX - initX;
-        let diffY = e.clientY - initY;
-
-        let finalW = initW;
-        let finalH = initH;
-        let finalL = initL;
-        let finalT = initT;
-
-        if (dotType.includes('r')) finalW = initW + diffX;
-        if (dotType.includes('b')) finalH = initH + diffY;
         
-        if (dotType.includes('l')) {
-            finalW = initW - diffX;
-            finalL = initL + diffX;
-        }
-        if (dotType.includes('t')) {
-            finalH = initH - diffY;
-            finalT = initT + diffY;
-        }
+        // Guardar estado al soltar slider o dejar input (change event)
+        input.addEventListener('change', () => {
+            saveHistoryState();
+        });
+    });
 
-        // Evitar desbordamientos externos durante el redimensionamiento
-        if (finalL < 0) { finalW += finalL; finalL = 0; }
-        if (finalT < 0) { finalH += finalT; finalT = 0; }
-        if (finalL + finalW > canvasW) finalW = canvasW - finalL;
-        if (currentResizerDot.classList.contains('rd-bc') || dotType.includes('b')) {
-            if (finalT + finalH > canvasH) finalH = canvasH - finalT;
+    // Content Editor (Textarea HTML)
+    const contentArea = document.getElementById('propInnerHTML');
+    contentArea.addEventListener('input', (e) => {
+        if (!AppState.canvas.selectedId) return;
+        const data = AppState.canvas.elements.find(el => el.id === AppState.canvas.selectedId);
+        if (data) {
+            data.content = e.target.value;
+            // Actualizar DOM real manteniendo handles
+            const node = document.getElementById(data.id);
+            const handlesHTML = Array.from(node.querySelectorAll('.resize-handle')).map(h => h.outerHTML).join('');
+            node.innerHTML = data.content + handlesHTML;
         }
+    });
+    contentArea.addEventListener('change', saveHistoryState);
 
-        // Límites mínimos del objeto para no romperse
-        if (finalW > 25 && (dotType.includes('l') || dotType.includes('r') || dotType.includes('c'))) {
-            activeEl.style.left = finalL + "px";
-            inner.style.width = finalW + "px";
-        }
-        if (finalH > 20 && (dotType.includes('t') || dotType.includes('b') || dotType.includes('c'))) {
-            activeEl.style.top = finalT + "px";
-            inner.style.height = finalH + "px";
-        }
+    // Botones de Alineación
+    document.querySelectorAll('.align-btn').forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            const align = e.currentTarget.getAttribute('data-align');
+            updateActiveElementStyle('textAlign', align);
+            saveHistoryState();
+        });
+    });
 
-        showTooltipMedidas(activeEl);
-        updateEditButtonPosition();
+    // Botón Eliminar
+    document.getElementById('btnDeleteSelectedElement').addEventListener('click', deleteSelectedElement);
+    // Botón Duplicar
+    document.getElementById('btnDuplicateSelectedElement').addEventListener('click', duplicateSelectedElement);
+}
+
+function populatePropertiesPanel(data) {
+    const s = data.style;
+    
+    // Dimensiones
+    document.getElementById('propW').value = parseInt(s.width) || '';
+    document.getElementById('propH').value = parseInt(s.height) || '';
+    document.getElementById('propX').value = parseInt(s.left) || '';
+    document.getElementById('propY').value = parseInt(s.top) || '';
+    
+    // Colores
+    document.getElementById('propBgColor').value = rgb2hex(s.backgroundColor) || '#ffffff';
+    document.getElementById('propBgColorHex').value = rgb2hex(s.backgroundColor) || '#ffffff';
+    document.getElementById('propTextColor').value = rgb2hex(s.color) || '#000000';
+    document.getElementById('propTextColorHex').value = rgb2hex(s.color) || '#000000';
+    document.getElementById('propOpacity').value = s.opacity || '1';
+
+    // Tipografía
+    document.getElementById('propFontSize').value = parseInt(s.fontSize) || '16';
+    document.getElementById('propFontWeight').value = s.fontWeight || '400';
+    
+    // Bordes
+    document.getElementById('propBorderRadius').value = parseInt(s.borderRadius) || '0';
+    document.getElementById('propBorderWidth').value = parseInt(s.borderWidth) || '0';
+    document.getElementById('propBorderColor').value = rgb2hex(s.borderColor) || '#000000';
+    document.getElementById('propBorderStyle').value = s.borderStyle || 'none';
+
+    // Padding
+    document.getElementById('padTop').value = parseInt(s.paddingTop) || '0';
+    document.getElementById('padRight').value = parseInt(s.paddingRight) || '0';
+    document.getElementById('padBottom').value = parseInt(s.paddingBottom) || '0';
+    document.getElementById('padLeft').value = parseInt(s.paddingLeft) || '0';
+
+    // Contenido
+    document.getElementById('propInnerHTML').value = data.content;
+
+    // Mostrar/Ocultar campos específicos según tipo
+    if (data.type === 'media-image') {
+        document.getElementById('imgSrcControl').style.display = 'block';
+        document.getElementById('propImageSrc').value = data.attributes.src;
+    } else {
+        document.getElementById('imgSrcControl').style.display = 'none';
     }
-});
+}
 
-window.addEventListener('mouseup', () => {
-    if (isDragging) {
-        selectedElements.forEach(el => el.classList.add('smooth-move'));
+function updateActiveElementStyle(prop, value) {
+    const id = AppState.canvas.selectedId;
+    if (!id) return;
+    
+    const data = AppState.canvas.elements.find(el => el.id === id);
+    const node = document.getElementById(id);
+    
+    if (data && node) {
+        data.style[prop] = value;
+        node.style[prop] = value;
     }
-    isDragging = false;
-    currentResizerDot = null;
-    measureTooltip.classList.remove('show');
-});
+}
 
-// --- MENÚ FLOTANTE INTELIGENTE (VIEWPORT SAFE) ---
-function updateEditButtonPosition() {
-    if (selectedElements.length === 0) {
-        hoverEditBtn.classList.remove('show');
+// Utilidad color
+function rgb2hex(rgb) {
+    if (!rgb) return null;
+    if (rgb.startsWith('#')) return rgb;
+    let rgbArr = rgb.match(/^rgba?[\s+]?\([\s+]?(\d+)[\s+]?,[\s+]?(\d+)[\s+]?,[\s+]?(\d+)[\s+]?/i);
+    return (rgbArr && rgbArr.length === 4) ? "#" +
+        ("0" + parseInt(rgbArr[1],10).toString(16)).slice(-2) +
+        ("0" + parseInt(rgbArr[2],10).toString(16)).slice(-2) +
+        ("0" + parseInt(rgbArr[3],10).toString(16)).slice(-2) : '';
+}
+
+// 8. PANEL DE CAPAS Y ÁRBOL DOM
+function updateLayersPanel() {
+    const container = document.getElementById('layersTreeContainer');
+    container.innerHTML = '';
+    
+    if (AppState.canvas.elements.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i data-lucide="layers" class="empty-icon"></i>
+                <p>El lienzo está vacío.</p>
+            </div>
+        `;
+        lucide.createIcons();
         return;
     }
-    const activeEl = selectedElements[selectedElements.length - 1];
-    const rect = activeEl.getBoundingClientRect();
-    const workspaceRect = workspace.getBoundingClientRect();
-    
-    hoverEditBtn.classList.add('show');
-    
-    let topPos = rect.top + window.scrollY - 38;
-    let leftPos = rect.left + window.scrollX + (rect.width / 2) - 60;
 
-    // Si choca arriba en la pantalla, se despliega abajo automáticamente
-    if (topPos < workspaceRect.top + 5) {
-        topPos = rect.bottom + window.scrollY + 10;
-    }
+    // Renderizar inverso para que el z-index más alto esté arriba en la lista
+    const sortedEls = [...AppState.canvas.elements].sort((a,b) => b.style.zIndex - a.style.zIndex);
 
-    hoverEditBtn.style.left = leftPos + 'px';
-    hoverEditBtn.style.top = topPos + 'px';
-}
+    sortedEls.forEach(el => {
+        const node = document.createElement('div');
+        node.className = `layer-node ${AppState.canvas.selectedId === el.id ? 'active' : ''}`;
+        node.onclick = () => selectElement(el.id);
+        
+        let icon = 'box';
+        if(el.type.includes('text')) icon = 'type';
+        if(el.type.includes('image')) icon = 'image';
+        if(el.type.includes('button')) icon = 'mouse-pointer';
 
-// --- INDICADOR MULTI-MÉTRICA EN TIEMPO REAL (PX / CM) ---
-function showTooltipMedidas(el) {
-    const rect = el.getBoundingClientRect();
-    const wPx = el.offsetWidth;
-    const hPx = el.offsetHeight;
-
-    const wCm = (wPx / PX_TO_CM).toFixed(1);
-    const hCm = (hPx / PX_TO_CM).toFixed(1);
-
-    measureTooltip.innerText = `${wPx}x${hPx}px | ${wCm}x${hCm}cm`;
-    measureTooltip.classList.add('show');
-
-    measureTooltip.style.left = (rect.right + window.scrollX + 12) + 'px';
-    measureTooltip.style.top = (rect.bottom + window.scrollY + 12) + 'px';
-}
-
-// Manejadores de los disparadores rápidos de la barra flotante
-mainEditTrigger.addEventListener('click', openEditSidebar);
-fastDuplicateTrigger.addEventListener('click', () => { copySelected(); pasteSelected(); });
-fastDeleteTrigger.addEventListener('click', () => { applyToGroup(el => el.remove()); unselectAll(); });
-closeEditBtn.addEventListener('click', closeEditSidebar);
-
-function openEditSidebar() { editSidebar.classList.add('active'); updateInspectorValues(); }
-function closeEditSidebar() { editSidebar.classList.remove('active'); }
-
-function selectElement(el) {
-    unselectAll();
-    el.classList.add('smooth-move');
-    el.classList.add('selected');
-    selectedElements.push(el);
-    updateEditButtonPosition();
-    if (editSidebar.classList.contains('active')) updateInspectorValues();
-}
-
-function unselectAll() {
-    document.querySelectorAll('.generated-element').forEach(el => {
-        el.classList.remove('selected');
-        el.classList.add('smooth-move');
+        node.innerHTML = `
+            <div class="layer-left">
+                <i data-lucide="${icon}"></i>
+                <span>${el.name}</span>
+            </div>
+            <div class="layer-actions">
+                <i data-lucide="${el.locked ? 'lock' : 'unlock'}" onclick="toggleLock('${el.id}', event)" style="cursor:pointer;"></i>
+                <i data-lucide="eye" style="cursor:pointer;"></i>
+            </div>
+        `;
+        container.appendChild(node);
     });
-    selectedElements = [];
-    hoverEditBtn.classList.remove('show');
-    measureTooltip.classList.remove('show');
-    closeEditSidebar(); 
-}
-
-function updateInspectorValues() {
-    if (selectedElements.length === 0) return;
-    const referenceEl = selectedElements[selectedElements.length - 1];
-    const type = referenceEl.dataset.type;
-    const inner = referenceEl.querySelector('.inner-content');
-    const computed = window.getComputedStyle(inner);
-
-    if (type === 'button') {
-        textEditSection.style.display = 'flex';
-        boxEditSection.style.display = 'flex';
-    } else if (['title', 'paragraph', 'list', 'link'].includes(type)) {
-        textEditSection.style.display = 'flex';
-        boxEditSection.style.display = 'none';
-    } else {
-        textEditSection.style.display = 'none';
-        boxEditSection.style.display = 'flex';
-    }
-
-    floatColor.value = rgbToHex(computed.color);
-    floatSize.value = parseInt(computed.fontSize) || 16;
-    floatBgColor.value = rgbToHex(computed.backgroundColor);
-    floatRadius.value = parseInt(computed.borderRadius) || 0;
-    floatBorder.value = parseInt(computed.borderWidth) || 0;
-    floatBorderColor.value = rgbToHex(computed.borderColor);
     
-    const currentTransform = referenceEl.style.transform;
-    const matchRot = currentTransform.match(/rotate\((\d+)deg\)/);
-    floatRotate.value = matchRot ? matchRot[1] : 0;
-    floatOpacity.value = (window.getComputedStyle(referenceEl).opacity || 1) * 100;
+    lucide.createIcons();
 }
 
-function applyToGroup(callback) { selectedElements.forEach(callback); }
-
-floatColor.addEventListener('input', (e) => { applyToGroup(el => el.querySelector('.inner-content').style.color = e.target.value); });
-floatSize.addEventListener('input', (e) => { applyToGroup(el => el.querySelector('.inner-content').style.fontSize = e.target.value + "px"); });
-floatFont.addEventListener('change', (e) => { applyToGroup(el => el.querySelector('.inner-content').style.fontFamily = e.target.value); });
-floatBgColor.addEventListener('input', (e) => { applyToGroup(el => el.querySelector('.inner-content').style.backgroundColor = e.target.value); });
-floatRadius.addEventListener('input', (e) => { applyToGroup(el => el.querySelector('.inner-content').style.borderRadius = e.target.value + "px"); });
-floatBorder.addEventListener('input', (e) => { applyToGroup(el => { const i = el.querySelector('.inner-content'); i.style.borderStyle = 'solid'; i.style.borderWidth = e.target.value + "px"; }); });
-floatBorderColor.addEventListener('input', (e) => { applyToGroup(el => el.querySelector('.inner-content').style.borderColor = e.target.value); });
-floatShadow.addEventListener('input', (e) => { applyToGroup(el => el.querySelector('.inner-content').style.boxShadow = `0px ${e.target.value/2}px ${e.target.value}px rgba(0,0,0,0.25)`); });
-floatRotate.addEventListener('input', (e) => { applyToGroup(el => el.style.transform = `rotate(${e.target.value}deg)`); });
-floatOpacity.addEventListener('input', (e) => { applyToGroup(el => el.style.opacity = e.target.value / 100); });
-
-floatDelete.addEventListener('click', () => { applyToGroup(el => el.remove()); unselectAll(); });
-floatDuplicate.addEventListener('click', () => { copySelected(); pasteSelected(); });
-
-function applyInlineFormat(cmd) { document.execCommand(cmd, false, null); }
-
-// --- PORTAPAPELES INTERNO ---
-function copySelected() {
-    if (selectedElements.length === 0) return;
-    copiedElementsData = selectedElements.map(el => ({
-        type: el.dataset.type,
-        htmlContent: el.innerHTML,
-        left: parseFloat(el.style.left || 0),
-        top: parseFloat(el.style.top || 0),
-        transform: el.style.transform || 'none',
-        opacity: el.style.opacity || '1'
-    }));
-}
-
-function pasteSelected() {
-    if (copiedElementsData.length === 0) return;
-    const newClones = [];
-    copiedElementsData.forEach(data => {
-        const clone = document.createElement('div');
-        clone.classList.add('generated-element', 'smooth-move');
-        clone.dataset.type = data.type;
-        clone.innerHTML = data.htmlContent;
-        
-        clone.style.left = (data.left + 30) + "px";
-        clone.style.top = (data.top + 30) + "px";
-        clone.style.transform = data.transform;
-        clone.style.opacity = data.opacity;
-
-        canvas.appendChild(clone);
-        newClones.push(clone);
-
-        data.left += 30;
-        data.top += 30;
-    });
-    if(newClones.length > 0) selectElement(newClones[newClones.length - 1]);
-}
-
-// --- FÁBRICA DE COMPONENTES INTERACTIVOS ---
-function addElement(type) {
-    const newEl = document.createElement('div');
-    newEl.classList.add('generated-element', 'smooth-move');
-    newEl.dataset.type = type;
-
-    let html = '';
-    switch(type) {
-        case 'header':
-            html = `<header class="inner-content" style="background:#00f2fe; color:#000; width:850px; height:70px; padding:15px; font-weight:bold; font-size:1.3rem;" contenteditable="true">MAIN_HEADER // CONTROL PANEL</header>`;
-            break;
-        case 'footer':
-            html = `<footer class="inner-content" style="background:#131419; color:#666; width:850px; height:50px; padding:15px; font-size:0.75rem; text-align:center;" contenteditable="true">SYS_FOOTER // DATA DISCLOSURE 2026</footer>`;
-            break;
-        case 'title':
-            html = `<h1 class="inner-content" style="color:#222; font-size:2rem; font-weight:bold;" contenteditable="true">>> PROTOCOLO_TITULO</h1>`;
-            break;
-        case 'paragraph':
-            html = `<p class="inner-content" style="color:#444; font-size:0.9rem; width:250px;" contenteditable="true">Contenido descriptivo procesado en nodo de terminal libre...</p>`;
-            break;
-        case 'square':
-            html = `<div class="inner-content" style="background-color:#e4e7eb; width:120px; height:120px; border:1px solid #999;" contenteditable="true"></div>`;
-            break;
-        case 'list':
-            html = `<ol class="inner-content" style="color:#333; padding-left:20px;" contenteditable="true"><li>Elemento_01</li><li>Elemento_02</li></ol>`;
-            break;
-        case 'link':
-            html = `<a href="#" class="inner-content" style="color:#00ffcc; text-decoration:underline;" contenteditable="true" onclick="event.preventDefault()">HYPERLINK_NODAL</a>`;
-            break;
-        case 'button':
-            html = `<button class="inner-content" style="background-color:#000; color:#00ffcc; border:1px solid #00ffcc; padding:10px 20px; font-size:0.8rem; font-weight:bold; cursor:pointer;" contenteditable="true">EJECUTAR_ACCION</button>`;
-            break;
-        case 'input':
-            html = `<input type="text" class="inner-content" placeholder="Awaiting entry..." value="INPUT_NODE">`;
-            break;
-        case 'image':
-            html = `<img class="inner-content" src="https://picsum.photos/200/150" style="width:200px; height:150px; object-fit:cover;" alt="Img">`;
-            break;
-        case 'audio':
-            html = `<audio class="inner-content" controls style="width:250px;"><source src="#" type="audio/mpeg"></audio>`;
-            break;
-        case 'video':
-            html = `<video class="inner-content" controls style="width:300px; height:170px; background:black;"><source src="#" type="video/mp4"></video>`;
-            break;
-        case 'table':
-            html = `<table class="inner-content" style="border-collapse:collapse; width:240px; text-align:left;" border="1"><thead style="background:#eee;"><tr><th>SYS_ID</th><th>VAL</th></tr></thead><tbody contenteditable="true"><tr><td>0x01</td><td>FF</td></tr></tbody></table>`;
-            break;
+window.toggleLock = function(id, e) {
+    e.stopPropagation();
+    const data = AppState.canvas.elements.find(el => el.id === id);
+    if(data) {
+        data.locked = !data.locked;
+        updateLayersPanel();
+        showToast(data.locked ? "Elemento bloqueado" : "Elemento desbloqueado");
     }
-
-    // Estructuración simétrica de los 8 tiradores perimetrales estilo Canva
-    const dotsHtml = `
-        <div class="resize-dot rd-tl"></div><div class="resize-dot rd-tc"></div><div class="resize-dot rd-tr"></div>
-        <div class="resize-dot rd-lc"></div>                                  <div class="resize-dot rd-rc"></div>
-        <div class="resize-dot rd-bl"></div><div class="resize-dot rd-bc"></div><div class="resize-dot rd-br"></div>
-    `;
-
-    newEl.innerHTML = html + dotsHtml;
-    canvas.appendChild(newEl);
-    selectElement(newEl);
 }
 
-// --- CONFIGURACIÓN DINÁMICA DEL LIENZO ---
-function updateCanvasBg(color) { canvas.style.backgroundColor = color; }
-function resizeCanvas(h) { canvas.style.height = h+"px"; heightLabel.innerText = `Alto Lienzo: ${h}px`; heightSlider.value = h; }
+function updateFooterStats() {
+    document.getElementById('elementCountDisplay').innerText = `${AppState.canvas.elements.length} Elementos`;
+}
 
-let isResizingCanvas = false;
-canvasResizer.addEventListener('mousedown', () => { isResizingCanvas = true; document.body.style.cursor = 'ns-resize'; });
-window.addEventListener('mousemove', (e) => {
-    if (!isResizingCanvas) return;
-    let nH = e.clientY - canvas.getBoundingClientRect().top;
-    if (nH >= 300 && nH <= 3000) resizeCanvas(nH);
-});
-window.addEventListener('mouseup', () => { if(isResizingCanvas) { isResizingCanvas = false; document.body.style.cursor='default'; } });
+// 9. ACCIONES COMPLEJAS (Eliminar, Duplicar, Z-Index)
+function deleteSelectedElement() {
+    const id = AppState.canvas.selectedId;
+    if (!id) return;
+    
+    // Remover del DOM
+    const node = document.getElementById(id);
+    if (node) node.remove();
+    
+    // Remover del State
+    AppState.canvas.elements = AppState.canvas.elements.filter(el => el.id !== id);
+    
+    deselectAll();
+    updateLayersPanel();
+    updateFooterStats();
+    saveHistoryState();
+    showToast("Elemento eliminado", "error");
+}
 
-// --- MOTOR DE EXPORTACIÓN INTELIGENTE (RESPONSIVE FULL WINDOW 100VW) ---
-function generateCode() {
-    const elements = canvas.querySelectorAll('.generated-element');
-    let htmlContent = '';
-    const canvasBg = canvas.style.backgroundColor || '#ffffff';
-    const canvasHeight = canvas.style.height || '600px';
+function duplicateSelectedElement() {
+    const id = AppState.canvas.selectedId;
+    if (!id) return;
+    
+    const originalData = AppState.canvas.elements.find(el => el.id === id);
+    if (!originalData) return;
+    
+    // Clon profundo manual
+    const cloneData = JSON.parse(JSON.stringify(originalData));
+    
+    AppState.canvas.counter++;
+    cloneData.id = `el_${cloneData.type.replace('-', '_')}_${AppState.canvas.counter}`;
+    cloneData.name = `${originalData.name} (Copia)`;
+    
+    // Desplazar copia ligeramente
+    let currentLeft = parseInt(cloneData.style.left);
+    let currentTop = parseInt(cloneData.style.top);
+    cloneData.style.left = `${currentLeft + 20}px`;
+    cloneData.style.top = `${currentTop + 20}px`;
+    cloneData.style.zIndex = AppState.canvas.elements.length + 1;
+    
+    AppState.canvas.elements.push(cloneData);
+    renderElementToCanvas(cloneData);
+    
+    selectElement(cloneData.id);
+    updateLayersPanel();
+    updateFooterStats();
+    saveHistoryState();
+    showToast("Elemento duplicado", "success");
+}
 
-    elements.forEach((el) => {
-        const inner = el.querySelector('.inner-content');
-        const cleanInner = inner.cloneNode(true);
-        cleanInner.removeAttribute('contenteditable');
+// 10. MENÚ CONTEXTUAL Y ATAJOS DE TECLADO
+function initContextMenu() {
+    const menu = document.getElementById('contextMenu');
+    
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.context-menu')) {
+            hideContextMenu();
+        }
+    });
+
+    document.getElementById('ctxDelete').addEventListener('click', () => { deleteSelectedElement(); hideContextMenu(); });
+    document.getElementById('ctxDuplicate').addEventListener('click', () => { duplicateSelectedElement(); hideContextMenu(); });
+}
+
+function showContextMenu(x, y) {
+    const menu = document.getElementById('contextMenu');
+    menu.style.display = 'block';
+    // Ajustar posición para que no se salga de la pantalla
+    const rect = menu.getBoundingClientRect();
+    if (x + rect.width > window.innerWidth) x = window.innerWidth - rect.width - 10;
+    if (y + rect.height > window.innerHeight) y = window.innerHeight - rect.height - 10;
+    
+    menu.style.left = `${x}px`;
+    menu.style.top = `${y}px`;
+}
+
+function hideContextMenu() {
+    document.getElementById('contextMenu').style.display = 'none';
+}
+
+function initKeyboardShortcuts() {
+    document.addEventListener('keydown', (e) => {
+        // No ejecutar atajos si el usuario está escribiendo en un input
+        if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+        if (e.key === 'Delete' || e.key === 'Backspace') {
+            e.preventDefault();
+            deleteSelectedElement();
+        }
         
-        const currentWidth = el.offsetWidth;
-        const leftPercent = (parseFloat(el.style.left || 0) / 850) * 100;
-        
-        let widthStyle = inner.style.width || `${inner.offsetWidth}px`;
-        let leftStyle = `${leftPercent}%`;
-        let elementAlignStyles = "";
-
-        // Si el objeto cubre todo o casi todo el ancho del lienzo, se expande al 100% real
-        if (currentWidth >= 840) {
-            widthStyle = "100%";
-            leftStyle = "0";
-            cleanInner.style.width = "100%";
-            elementAlignStyles = "right: 0; box-sizing: border-box;";
+        if (e.ctrlKey && (e.key === 'd' || e.key === 'D')) {
+            e.preventDefault();
+            duplicateSelectedElement();
         }
 
-        const wrapperStyles = `position: absolute; left: ${leftStyle}; top: ${el.style.top}; width: ${widthStyle}; transform: ${el.style.transform || 'none'}; opacity: ${el.style.opacity || '1'}; ${elementAlignStyles}`;
-        htmlContent += `  <div style="${wrapperStyles}">\n    ${cleanInner.outerHTML}\n  </div>\n`;
+        if (e.ctrlKey && (e.key === 'z' || e.key === 'Z')) {
+            e.preventDefault();
+            undo();
+        }
+
+        if (e.ctrlKey && (e.key === 'y' || e.key === 'Y')) {
+            e.preventDefault();
+            redo();
+        }
+    });
+}
+
+// 11. SISTEMA DE HISTORIAL (UNDO/REDO STATE)
+function saveHistoryState() {
+    // Evitar guardar si no hubo cambios reales comparando JSON
+    const currentStateStr = JSON.stringify(AppState.canvas.elements);
+    if (AppState.history.past.length > 0) {
+        if (AppState.history.past[AppState.history.past.length - 1] === currentStateStr) return;
+    }
+    
+    AppState.history.past.push(currentStateStr);
+    // Limitar historial a 30 pasos
+    if (AppState.history.past.length > 30) AppState.history.past.shift();
+    
+    // Limpiar future al hacer un nuevo cambio
+    AppState.history.future = [];
+}
+
+function undo() {
+    if (AppState.history.past.length <= 1) {
+        showToast("No hay más acciones para deshacer");
+        return;
+    }
+    
+    // Mover estado actual al futuro
+    const currentState = AppState.history.past.pop();
+    AppState.history.future.push(currentState);
+    
+    // Restaurar estado anterior
+    const previousStateStr = AppState.history.past[AppState.history.past.length - 1];
+    restoreState(previousStateStr);
+    showToast("Deshacer");
+}
+
+function redo() {
+    if (AppState.history.future.length === 0) {
+        showToast("No hay acciones para rehacer");
+        return;
+    }
+    
+    // Obtener estado del futuro y mover al pasado
+    const nextStateStr = AppState.history.future.pop();
+    AppState.history.past.push(nextStateStr);
+    
+    restoreState(nextStateStr);
+    showToast("Rehacer");
+}
+
+function restoreState(stateStr) {
+    const elementsData = JSON.parse(stateStr);
+    AppState.canvas.elements = elementsData;
+    
+    // Limpiar canvas actual
+    const canvas = document.getElementById('mainCanvas');
+    canvas.querySelectorAll('.vpb-element').forEach(el => el.remove());
+    
+    // Renderizar todos los elementos del estado restaurado
+    elementsData.forEach(data => renderElementToCanvas(data));
+    
+    deselectAll();
+    updateLayersPanel();
+    updateFooterStats();
+}
+
+// 12. GENERADOR DE EXPORTACIÓN (CODE ENGINE)
+function generateExportCode() {
+    const title = document.getElementById('seoTitle').value || "Página Exportada - VPB";
+    const desc = document.getElementById('seoDescription').value || "Construido con Visual Page Builder Pro";
+    
+    let htmlContent = '';
+    let cssContent = '';
+
+    // Iterar sobre los elementos ordenados por zIndex
+    const sortedEls = [...AppState.canvas.elements].sort((a,b) => a.style.zIndex - b.style.zIndex);
+
+    sortedEls.forEach(el => {
+        const id = el.id;
+        const classes = el.attributes.customClasses ? ` ${el.attributes.customClasses}` : '';
+        
+        // Determinar Tag HTML semántico
+        let tag = 'div';
+        if (el.type.includes('heading')) tag = 'h2';
+        if (el.type.includes('paragraph')) tag = 'p';
+        if (el.type === 'form-button') tag = 'button';
+        if (el.type === 'text-link') tag = 'a';
+        if (el.type === 'media-image') tag = 'img';
+
+        // Generar HTML String
+        let attrs = `id="${id}" class="vpb-item${classes}"`;
+        if (tag === 'a') attrs += ` href="${el.attributes.href}"`;
+        
+        if (tag === 'img') {
+            attrs += ` src="${el.attributes.src}" alt="${el.name}"`;
+            htmlContent += `    <${tag} ${attrs} />\n`;
+        } else {
+            htmlContent += `    <${tag} ${attrs}>\n        ${el.content.replace(/\n/g, '\n        ')}\n    </${tag}>\n`;
+        }
+
+        // Generar CSS String
+        cssContent += `#${id} {\n`;
+        cssContent += `    position: absolute;\n`;
+        for (const [key, value] of Object.entries(el.style)) {
+            if (value && value !== '0px' && value !== 'none' && value !== 'transparent') {
+                // Convertir camelCase a kebab-case
+                const kebabKey = key.replace(/([A-Z])/g, "-$1").toLowerCase();
+                cssContent += `    ${kebabKey}: ${value};\n`;
+            }
+        }
+        cssContent += `}\n\n`;
     });
 
-    const fullPageCode = 
-`<!DOCTYPE html>
+    const finalHtml = `<!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Sitio Web Adaptable Full-Width</title>
-  <style>
-    /* CSS RESET: Mata márgenes indeseados del navegador en los extremos */
-    html, body { 
-      margin: 0; 
-      padding: 0; 
-      width: 100%;
-      overflow-x: hidden;
-    }
-    body { 
-      background-color: ${canvasBg}; 
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; 
-    }
-    
-    /* El contenedor maestro fluye libremente al ancho completo del Viewport */
-    .web-container {
-      position: relative;
-      width: 100vw; 
-      height: ${canvasHeight};
-      margin: 0;
-      padding: 0;
-    }
-    
-    @media (max-width: 768px) {
-      .web-container { height: auto; min-height: 100vh; }
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${title}</title>
+    <meta name="description" content="${desc}">
+    <link rel="stylesheet" href="styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <style>
+        /* Base Boilerplate */
+        body, html { margin: 0; padding: 0; font-family: 'Inter', sans-serif; min-height: 100vh; overflow-x: hidden; position: relative; }
+        * { box-sizing: border-box; }
+        .vpb-item { display: block; }
+    </style>
 </head>
 <body>
-
-  <div class="web-container">
-${htmlContent}  </div>
-
-</body>
+    <div class="vpb-canvas-wrapper" style="position: relative; width: 100%; min-height: 100vh;">
+${htmlContent}
+    </div>
+    </body>
 </html>`;
 
-    codeOutput.value = fullPageCode;
-    outputContainer.style.display = 'block';
-    outputContainer.scrollIntoView({ behavior: 'smooth' });
+    // Combinar o mostrar en UI (En este caso lo mostramos unificado en el preview para copiar rápido)
+    const combinedPreview = `\n${finalHtml}\n\n/* ====== STYLES.CSS ====== */\n${cssContent}`;
+
+    document.getElementById('exportCodeViewer').textContent = combinedPreview;
+    document.getElementById('modalExport').style.display = 'flex';
 }
 
-// --- TRANSMISIÓN DIRECTA AL PORTAPAPELES (COPIAR CÓDIGO) ---
-function copyToClipboard() {
-    const codeArea = document.getElementById('codeOutput');
-    const copyBtn = document.getElementById('btnCopyClipboard');
+// 13. TOAST NOTIFICATIONS UTILITY
+function showToast(message, type = 'info') {
+    const container = document.getElementById('toastContainer');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
     
-    codeArea.select();
-    codeArea.setSelectionRange(0, 99999); 
-    
-    navigator.clipboard.writeText(codeArea.value).then(() => {
-        // Alerta visual de ejecución exitosa
-        copyBtn.innerText = "[ ¡COPIADO CON ÉXITO! ]";
-        copyBtn.classList.add('copied');
-        
-        setTimeout(() => {
-            copyBtn.innerText = "[ COPIAR CÓDIGO ]";
-            copyBtn.classList.remove('copied');
-        }, 2000);
-    }).catch(err => {
-        console.error('Error del sistema al copiar: ', err);
-    });
-}
+    let icon = 'info';
+    if(type === 'success') icon = 'check-circle';
+    if(type === 'error') icon = 'alert-triangle';
 
-// Transformador de formatos RGB
-function rgbToHex(rgb) {
-    if (!rgb || rgb.startsWith("#")) return rgb || "#000000";
-    if (rgb === "rgba(0, 0, 0, 0)" || rgb === "transparent") return "#ffffff";
-    const values = rgb.match(/\d+/g);
-    if (!values) return "#000000";
-    return "#" + values.slice(0, 3).map(x => {
-        const hex = parseInt(x).toString(16);
-        return hex.length === 1 ? "0" + hex : hex;
-    }).join("");
+    toast.innerHTML = `
+        <i data-lucide="${icon}"></i>
+        <span>${message}</span>
+        <i data-lucide="x" class="toast-close" onclick="this.parentElement.remove()"></i>
+    `;
+    
+    container.appendChild(toast);
+    lucide.createIcons();
+
+    setTimeout(() => {
+        toast.classList.add('hiding');
+        setTimeout(() => toast.remove(), 300);
+    }, 3000);
 }
