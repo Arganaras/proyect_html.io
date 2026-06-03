@@ -1,149 +1,631 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" dir="ltr">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Canvas Cyber-OS v2.6</title>
-    <link rel="stylesheet" href="style.css">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
+    <title>Visual Page Builder Pro - Editor Completo</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <link rel="stylesheet" href="styles.css">
+    <script src="script.js" defer></script>
 </head>
-<body class="dark-mode"> <div id="edit-sidebar">
-        <div class="edit-sidebar-header">
-            <h2><span class="neon-text">//</span> PROPIEDADES</h2>
-            <button id="close-edit-sidebar">✕</button>
-        </div>
+<body class="theme-dark editor-loading">
 
-        <div id="text-edit-section" class="edit-group">
-            <h3>[ TEXTO ]</h3>
-            <label>Color fuente</label>
-            <input type="color" id="floatColor">
-            
-            <label>Tamaño (px)</label>
-            <input type="number" id="floatSize" min="10" max="100">
-            
-            <label>Tipografía</label>
-            <select id="floatFont">
-                <option value="'Courier New', monospace">Courier New (Console)</option>
-                <option value="'Segoe UI', sans-serif">Segoe UI</option>
-                <option value="Arial, sans-serif">Arial</option>
-                <option value="'Times New Roman', serif">Times New Roman</option>
-            </select>
-
-            <label>Formato</label>
-            <div class="flex-row gap-small">
-                <button class="btn-sidebar-action" onclick="applyInlineFormat('bold')">B</button>
-                <button class="btn-sidebar-action" onclick="applyInlineFormat('italic')">I</button>
-                <button class="btn-sidebar-action" onclick="applyInlineFormat('underline')">U</button>
+    <div id="loadingScreen" class="loading-overlay">
+        <div class="spinner-container">
+            <i data-lucide="loader-2" class="spin-icon"></i>
+            <h2>Cargando Entorno de Trabajo...</h2>
+            <div class="progress-bar">
+                <div class="progress-fill" id="loadProgress"></div>
             </div>
-        </div>
-
-        <div id="box-edit-section" class="edit-group">
-            <h3>[ ESTRUCTURA ]</h3>
-            <label>Color fondo</label>
-            <input type="color" id="floatBgColor">
-            
-            <label>Radio esquina</label>
-            <input type="range" id="floatRadius" min="0" max="100" value="0">
-            
-            <label>Grosor borde</label>
-            <input type="range" id="floatBorder" min="0" max="20" value="0">
-            
-            <label>Color borde</label>
-            <input type="color" id="floatBorderColor">
-        </div>
-
-        <div class="edit-group">
-            <h3>[ EFECTOS ]</h3>
-            <label>Brillo Sombra</label>
-            <input type="range" id="floatShadow" min="0" max="50" value="0">
-
-            <label>Rotación (deg)</label>
-            <input type="range" id="floatRotate" min="0" max="360" value="0">
-            
-            <label>Opacidad</label>
-            <input type="range" id="floatOpacity" min="0" max="100" value="100">
-        </div>
-
-        <div class="edit-group">
-            <h3>[ ACCIONES ]</h3>
-            <div class="flex-row">
-                <button id="floatDuplicate" class="btn-sidebar-action">Duplicar</button>
-                <button id="floatDelete" class="btn-sidebar-action btn-danger">Eliminar</button>
-            </div>
+            <p id="loadText">Inicializando módulos...</p>
         </div>
     </div>
 
-    <div id="sidebar">
-        <div class="sidebar-top">
-            <h2>CORE_OS v2.6</h2>
-            <button id="themeToggleBtn" onclick="toggleTheme()">☀️</button>
-        </div>
-
-        <div class="scroller-tools">
-            <h3>NÚCLEO DOM</h3>
-            <div class="tool-group">
-                <button class="btn-tool" onclick="addElement('header')">_ Instalar Header</button>
-                <button class="btn-tool" onclick="addElement('footer')">_ Instalar Footer</button>
-            </div>
-
-            <h3>TEXTO & LINKS</h3>
-            <div class="tool-group">
-                <button class="btn-tool" onclick="addElement('title')">T_ Título</button>
-                <button class="btn-tool" onclick="addElement('paragraph')">P_ Párrafo</button>
-                <button class="btn-tool" onclick="addElement('list')">L_ Lista</button>
-                <button class="btn-tool" onclick="addElement('link')">A_ Enlace</button>
-            </div>
-
-            <h3>BLOQUES & INPUTS</h3>
-            <div class="tool-group">
-                <button class="btn-tool" onclick="addElement('square')">■ Contenedor</button>
-                <button class="btn-tool" onclick="addElement('button')">⚙ Botón</button>
-                <button class="btn-tool" onclick="addElement('input')">⌨ Entrada</button>
-                <button class="btn-tool" onclick="addElement('table')">📊 Tabla</button>
-            </div>
-
-            <h3>MULTIMEDIA</h3>
-            <div class="tool-group">
-                <button class="btn-tool" onclick="addElement('image')">IMAGE_ Objeto</button>
-                <button class="btn-tool" onclick="addElement('video')">VIDEO_ Stream</button>
-                <button class="btn-tool" onclick="addElement('audio')">AUDIO_ Wave</button>
-            </div>
-
-            <h3>LIENZO CONFIG</h3>
-            <div class="tool-group">
-                <label>Fondo de Matriz</label>
-                <input type="color" id="canvasBgPicker" value="#1e1e24" oninput="updateCanvasBg(this.value)">
-                <label id="heightLabel">Alto Lienzo: 600px</label>
-                <input type="range" id="heightSlider" min="300" max="2000" value="600" oninput="resizeCanvas(this.value)">
-            </div>
-        </div>
-
-        <button id="btnPrint" onclick="generateCode()">&lt;/&gt; COMPILAR CÓDIGO</button>
-    </div>
-
-    <div id="workspace">
-        <div id="canvas-container">
-            <div id="canvas">
+    <div class="app-layout">
+        
+        <header class="app-header">
+            <div class="header-left">
+                <button class="menu-btn" title="Menú Principal">
+                    <i data-lucide="menu"></i>
+                </button>
+                <div class="brand-logo">
+                    <i data-lucide="layout-dashboard"></i>
+                    <span>VPB Pro V2</span>
                 </div>
-            <div id="canvas-resizer">▲ ▼ ARRASTRAR PARA RESIZE LIENZO ▲ ▼</div>
-        </div>
-
-        <div id="output-container">
-            <div class="output-header">
-                <h3>[ REPOSITORIO COMPILADO ]</h3>
-                <button id="btnCopyClipboard" onclick="copyToClipboard()">[ COPIAR CÓDIGO ]</button>
+                <div class="vertical-separator"></div>
+                <div class="project-info">
+                    <input type="text" id="globalProjectName" value="Landing Page Principal" class="project-title-input" />
+                    <span class="project-status" id="projectStatus">
+                        <i data-lucide="check-circle-2"></i> Cambios guardados localmente
+                    </span>
+                </div>
             </div>
-            <textarea id="codeOutput" readonly></textarea>
+
+            <div class="header-center">
+                <div class="device-switcher">
+                    <button class="device-btn active" data-device="desktop" title="Vista Escritorio (1440px)">
+                        <i data-lucide="monitor"></i>
+                    </button>
+                    <button class="device-btn" data-device="laptop" title="Vista Portátil (1024px)">
+                        <i data-lucide="laptop"></i>
+                    </button>
+                    <button class="device-btn" data-device="tablet" title="Vista Tablet (768px)">
+                        <i data-lucide="tablet"></i>
+                    </button>
+                    <button class="device-btn" data-device="mobile" title="Vista Móvil (390px)">
+                        <i data-lucide="smartphone"></i>
+                    </button>
+                </div>
+            </div>
+
+            <div class="header-right">
+                <div class="history-controls">
+                    <button class="icon-btn" id="btnUndoGlobal" title="Deshacer (Ctrl+Z)">
+                        <i data-lucide="undo-2"></i>
+                    </button>
+                    <button class="icon-btn" id="btnRedoGlobal" title="Rehacer (Ctrl+Y)">
+                        <i data-lucide="redo-2"></i>
+                    </button>
+                </div>
+                <div class="vertical-separator"></div>
+                <button class="icon-btn" id="btnThemeToggle" title="Cambiar Tema">
+                    <i data-lucide="moon"></i>
+                </button>
+                <button class="icon-btn" id="btnPreview" title="Vista Previa">
+                    <i data-lucide="play"></i>
+                </button>
+                <button class="btn-primary" id="btnExportCode">
+                    <i data-lucide="code-2"></i>
+                    <span>Exportar</span>
+                </button>
+                <button class="btn-success" id="btnSaveSimulated">
+                    <i data-lucide="save"></i>
+                    <span>Guardar</span>
+                </button>
+            </div>
+        </header>
+
+        <div class="main-workspace">
+            
+            <aside class="sidebar sidebar-left">
+                <div class="sidebar-tabs">
+                    <button class="tab-btn active" data-target="panel-elements">
+                        <i data-lucide="blocks"></i>
+                        <span>Elementos</span>
+                    </button>
+                    <button class="tab-btn" data-target="panel-layers">
+                        <i data-lucide="layers"></i>
+                        <span>Capas</span>
+                    </button>
+                    <button class="tab-btn" data-target="panel-globals">
+                        <i data-lucide="globe"></i>
+                        <span>Globales</span>
+                    </button>
+                </div>
+
+                <div class="sidebar-content">
+                    
+                    <div id="panel-elements" class="panel-section active">
+                        <div class="search-elements">
+                            <i data-lucide="search"></i>
+                            <input type="text" placeholder="Buscar elementos..." id="searchElementsInput">
+                        </div>
+
+                        <div class="accordion-group">
+                            <div class="accordion-item active">
+                                <div class="accordion-header">
+                                    <i data-lucide="chevron-down" class="acc-icon"></i>
+                                    <span>Estructura & Layout</span>
+                                </div>
+                                <div class="accordion-body">
+                                    <div class="elements-grid">
+                                        <div class="draggable-el" draggable="true" data-type="layout-section">
+                                            <i data-lucide="box"></i>
+                                            <span>Sección</span>
+                                        </div>
+                                        <div class="draggable-el" draggable="true" data-type="layout-container">
+                                            <i data-lucide="layout"></i>
+                                            <span>Contenedor</span>
+                                        </div>
+                                        <div class="draggable-el" draggable="true" data-type="layout-grid-2">
+                                            <i data-lucide="grid-2x2"></i>
+                                            <span>Grid 2 Col</span>
+                                        </div>
+                                        <div class="draggable-el" draggable="true" data-type="layout-grid-3">
+                                            <i data-lucide="grid-3x3"></i>
+                                            <span>Grid 3 Col</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item active">
+                                <div class="accordion-header">
+                                    <i data-lucide="chevron-down" class="acc-icon"></i>
+                                    <span>Tipografía Básica</span>
+                                </div>
+                                <div class="accordion-body">
+                                    <div class="elements-grid">
+                                        <div class="draggable-el" draggable="true" data-type="text-heading">
+                                            <i data-lucide="heading"></i>
+                                            <span>Título</span>
+                                        </div>
+                                        <div class="draggable-el" draggable="true" data-type="text-paragraph">
+                                            <i data-lucide="align-left"></i>
+                                            <span>Párrafo</span>
+                                        </div>
+                                        <div class="draggable-el" draggable="true" data-type="text-link">
+                                            <i data-lucide="link"></i>
+                                            <span>Enlace</span>
+                                        </div>
+                                        <div class="draggable-el" draggable="true" data-type="text-list">
+                                            <i data-lucide="list"></i>
+                                            <span>Lista</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item active">
+                                <div class="accordion-header">
+                                    <i data-lucide="chevron-down" class="acc-icon"></i>
+                                    <span>Contenido Multimedia</span>
+                                </div>
+                                <div class="accordion-body">
+                                    <div class="elements-grid">
+                                        <div class="draggable-el" draggable="true" data-type="media-image">
+                                            <i data-lucide="image"></i>
+                                            <span>Imagen</span>
+                                        </div>
+                                        <div class="draggable-el" draggable="true" data-type="media-video">
+                                            <i data-lucide="video"></i>
+                                            <span>Video</span>
+                                        </div>
+                                        <div class="draggable-el" draggable="true" data-type="media-icon">
+                                            <i data-lucide="star"></i>
+                                            <span>Ícono</span>
+                                        </div>
+                                        <div class="draggable-el" draggable="true" data-type="media-map">
+                                            <i data-lucide="map"></i>
+                                            <span>Mapa</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item active">
+                                <div class="accordion-header">
+                                    <i data-lucide="chevron-down" class="acc-icon"></i>
+                                    <span>Formularios & Botones</span>
+                                </div>
+                                <div class="accordion-body">
+                                    <div class="elements-grid">
+                                        <div class="draggable-el" draggable="true" data-type="form-button">
+                                            <i data-lucide="mouse-pointer-click"></i>
+                                            <span>Botón</span>
+                                        </div>
+                                        <div class="draggable-el" draggable="true" data-type="form-input">
+                                            <i data-lucide="cursor-text"></i>
+                                            <span>Input Text</span>
+                                        </div>
+                                        <div class="draggable-el" draggable="true" data-type="form-textarea">
+                                            <i data-lucide="file-text"></i>
+                                            <span>Textarea</span>
+                                        </div>
+                                        <div class="draggable-el" draggable="true" data-type="form-checkbox">
+                                            <i data-lucide="check-square"></i>
+                                            <span>Checkbox</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="accordion-item active">
+                                <div class="accordion-header">
+                                    <i data-lucide="chevron-down" class="acc-icon"></i>
+                                    <span>Bloques Prediseñados</span>
+                                </div>
+                                <div class="accordion-body">
+                                    <div class="blocks-list">
+                                        <div class="draggable-block" draggable="true" data-type="block-hero">
+                                            <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iNTAiPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9IiNlMmU4ZjAiLz48L3N2Zz4=" alt="Hero">
+                                            <span>Hero Section Completo</span>
+                                        </div>
+                                        <div class="draggable-block" draggable="true" data-type="block-features">
+                                            <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iNTAiPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9IiNlMmU4ZjAiLz48L3N2Zz4=" alt="Features">
+                                            <span>Grilla de Características</span>
+                                        </div>
+                                        <div class="draggable-block" draggable="true" data-type="block-footer">
+                                            <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxMDAiIGhlaWdodD0iNTAiPjxyZWN0IHdpZHRoPSIxMDAlIiBoZWlnaHQ9IjEwMCUiIGZpbGw9IiNlMmU4ZjAiLz48L3N2Zz4=" alt="Footer">
+                                            <span>Footer Estándar</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="panel-layers" class="panel-section">
+                        <div class="layers-toolbar">
+                            <button class="layer-action-btn" id="btnExpandLayers" title="Expandir Todo"><i data-lucide="chevrons-down"></i></button>
+                            <button class="layer-action-btn" id="btnCollapseLayers" title="Contraer Todo"><i data-lucide="chevrons-up"></i></button>
+                            <button class="layer-action-btn" id="btnDeleteLayer" title="Eliminar Capa"><i data-lucide="trash"></i></button>
+                        </div>
+                        <div class="layers-tree" id="layersTreeContainer">
+                            <div class="empty-state">
+                                <i data-lucide="layers" class="empty-icon"></i>
+                                <p>El lienzo está vacío.</p>
+                                <p>Arrastra elementos para comenzar.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div id="panel-globals" class="panel-section">
+                        <div class="settings-group">
+                            <h4>Paleta de Colores</h4>
+                            <div class="color-vars">
+                                <div class="color-var-item">
+                                    <input type="color" value="#3b82f6" id="globalColorPrimary">
+                                    <span>Principal</span>
+                                </div>
+                                <div class="color-var-item">
+                                    <input type="color" value="#10b981" id="globalColorSuccess">
+                                    <span>Éxito</span>
+                                </div>
+                                <div class="color-var-item">
+                                    <input type="color" value="#ef4444" id="globalColorDanger">
+                                    <span>Peligro</span>
+                                </div>
+                                <div class="color-var-item">
+                                    <input type="color" value="#f3f4f6" id="globalColorBg">
+                                    <span>Fondo Grilla</span>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="settings-group">
+                            <h4>Tipografías Globales</h4>
+                            <div class="select-wrapper">
+                                <label>Fuente de Títulos</label>
+                                <select id="globalFontHeadings">
+                                    <option value="Inter">Inter</option>
+                                    <option value="Roboto">Roboto</option>
+                                    <option value="Montserrat">Montserrat</option>
+                                    <option value="Open Sans">Open Sans</option>
+                                </select>
+                            </div>
+                            <div class="select-wrapper">
+                                <label>Fuente de Cuerpo</label>
+                                <select id="globalFontBody">
+                                    <option value="Inter">Inter</option>
+                                    <option value="Roboto">Roboto</option>
+                                    <option value="Lora">Lora</option>
+                                    <option value="Arial">Arial</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="settings-group">
+                            <h4>Configuración del Documento</h4>
+                            <div class="input-wrapper">
+                                <label>Etiqueta Title SEO</label>
+                                <input type="text" id="seoTitle" placeholder="Mi Increíble Sitio Web">
+                            </div>
+                            <div class="input-wrapper">
+                                <label>Meta Descripción</label>
+                                <textarea id="seoDescription" rows="3" placeholder="Descripción para motores de búsqueda..."></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+
+            <main class="canvas-area" id="canvasScrollArea">
+                
+                <div class="ruler ruler-h" id="rulerHorizontal"></div>
+                <div class="ruler ruler-v" id="rulerVertical"></div>
+
+                <div class="canvas-wrapper" id="canvasWrapper">
+                    <div class="canvas-container" id="mainCanvas">
+                        <div class="canvas-empty-indicator" id="canvasEmptyState">
+                            <div class="dash-border">
+                                <i data-lucide="plus-circle"></i>
+                                <h3>Área de Diseño</h3>
+                                <p>Arrastra componentes desde el panel izquierdo</p>
+                            </div>
+                        </div>
+                        
+                        <div class="guide-line guide-h" id="guideH"></div>
+                        <div class="guide-line guide-v" id="guideV"></div>
+                    </div>
+                </div>
+
+                <div class="zoom-controls">
+                    <button id="btnZoomOut"><i data-lucide="minus"></i></button>
+                    <span id="zoomLevelDisplay">100%</span>
+                    <button id="btnZoomIn"><i data-lucide="plus"></i></button>
+                    <button id="btnZoomReset" title="Restablecer Zoom"><i data-lucide="maximize"></i></button>
+                </div>
+            </main>
+
+            <aside class="sidebar sidebar-right">
+                <div class="sidebar-header">
+                    <h3>Propiedades</h3>
+                    <span class="selected-type-badge" id="selectedElementType">Ninguno</span>
+                </div>
+
+                <div class="sidebar-content" id="propertiesPanel">
+                    
+                    <div class="empty-state" id="propsEmptyState">
+                        <i data-lucide="mouse-pointer-2" class="empty-icon"></i>
+                        <p>Selecciona un elemento en el lienzo para editar sus propiedades.</p>
+                    </div>
+
+                    <div id="propsContent" style="display: none;">
+                        
+                        <div class="props-tabs">
+                            <button class="prop-tab active" data-tab="prop-style">Estilos</button>
+                            <button class="prop-tab" data-tab="prop-content">Contenido</button>
+                            <button class="prop-tab" data-tab="prop-advanced">Avanzado</button>
+                        </div>
+
+                        <div id="prop-style" class="prop-pane active">
+                            
+                            <div class="prop-section">
+                                <h4 class="prop-section-title">Dimensiones</h4>
+                                <div class="prop-grid-2">
+                                    <div class="prop-input-group">
+                                        <label>Ancho (W)</label>
+                                        <div class="input-with-unit">
+                                            <input type="number" id="propW" data-css="width">
+                                            <span>px</span>
+                                        </div>
+                                    </div>
+                                    <div class="prop-input-group">
+                                        <label>Alto (H)</label>
+                                        <div class="input-with-unit">
+                                            <input type="number" id="propH" data-css="height">
+                                            <span>px</span>
+                                        </div>
+                                    </div>
+                                    <div class="prop-input-group">
+                                        <label>Pos X</label>
+                                        <div class="input-with-unit">
+                                            <input type="number" id="propX" data-css="left">
+                                            <span>px</span>
+                                        </div>
+                                    </div>
+                                    <div class="prop-input-group">
+                                        <label>Pos Y</label>
+                                        <div class="input-with-unit">
+                                            <input type="number" id="propY" data-css="top">
+                                            <span>px</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="prop-section">
+                                <h4 class="prop-section-title">Fondo y Color</h4>
+                                <div class="prop-row">
+                                    <label>Color de Fondo</label>
+                                    <div class="color-picker-wrapper">
+                                        <input type="color" id="propBgColor" data-css="backgroundColor">
+                                        <input type="text" id="propBgColorHex" placeholder="#FFFFFF">
+                                    </div>
+                                </div>
+                                <div class="prop-row">
+                                    <label>Color de Texto</label>
+                                    <div class="color-picker-wrapper">
+                                        <input type="color" id="propTextColor" data-css="color">
+                                        <input type="text" id="propTextColorHex" placeholder="#000000">
+                                    </div>
+                                </div>
+                                <div class="prop-row">
+                                    <label>Opacidad</label>
+                                    <input type="range" id="propOpacity" min="0" max="1" step="0.1" value="1" data-css="opacity">
+                                </div>
+                            </div>
+
+                            <div class="prop-section" id="sectionTypography">
+                                <h4 class="prop-section-title">Tipografía</h4>
+                                <div class="prop-row">
+                                    <label>Tamaño (Font Size)</label>
+                                    <div class="input-with-unit">
+                                        <input type="number" id="propFontSize" data-css="fontSize">
+                                        <span>px</span>
+                                    </div>
+                                </div>
+                                <div class="prop-row">
+                                    <label>Grosor (Font Weight)</label>
+                                    <select id="propFontWeight" data-css="fontWeight">
+                                        <option value="300">Light (300)</option>
+                                        <option value="400">Regular (400)</option>
+                                        <option value="500">Medium (500)</option>
+                                        <option value="600">Semi Bold (600)</option>
+                                        <option value="700">Bold (700)</option>
+                                        <option value="900">Black (900)</option>
+                                    </select>
+                                </div>
+                                <div class="prop-row">
+                                    <label>Alineación</label>
+                                    <div class="align-controls">
+                                        <button class="align-btn" data-align="left" title="Izquierda"><i data-lucide="align-left"></i></button>
+                                        <button class="align-btn" data-align="center" title="Centro"><i data-lucide="align-center"></i></button>
+                                        <button class="align-btn" data-align="right" title="Derecha"><i data-lucide="align-right"></i></button>
+                                        <button class="align-btn" data-align="justify" title="Justificado"><i data-lucide="align-justify"></i></button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="prop-section">
+                                <h4 class="prop-section-title">Bordes y Redondeo</h4>
+                                <div class="prop-grid-2">
+                                    <div class="prop-input-group">
+                                        <label>Radio (Border Radius)</label>
+                                        <div class="input-with-unit">
+                                            <input type="number" id="propBorderRadius" data-css="borderRadius">
+                                            <span>px</span>
+                                        </div>
+                                    </div>
+                                    <div class="prop-input-group">
+                                        <label>Grosor Borde</label>
+                                        <div class="input-with-unit">
+                                            <input type="number" id="propBorderWidth" data-css="borderWidth">
+                                            <span>px</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="prop-row">
+                                    <label>Color del Borde</label>
+                                    <div class="color-picker-wrapper">
+                                        <input type="color" id="propBorderColor" data-css="borderColor">
+                                    </div>
+                                </div>
+                                <div class="prop-row">
+                                    <label>Estilo del Borde</label>
+                                    <select id="propBorderStyle" data-css="borderStyle">
+                                        <option value="none">Ninguno</option>
+                                        <option value="solid">Sólido</option>
+                                        <option value="dashed">Punteado (Dashed)</option>
+                                        <option value="dotted">Puntos (Dotted)</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="prop-section">
+                                <h4 class="prop-section-title">Espaciado Interno (Padding)</h4>
+                                <div class="spacing-control">
+                                    <div class="spacing-box">
+                                        <input type="number" id="padTop" placeholder="Top" class="space-t" data-css="paddingTop">
+                                        <input type="number" id="padRight" placeholder="Right" class="space-r" data-css="paddingRight">
+                                        <input type="number" id="padBottom" placeholder="Bottom" class="space-b" data-css="paddingBottom">
+                                        <input type="number" id="padLeft" placeholder="Left" class="space-l" data-css="paddingLeft">
+                                        <div class="spacing-center-label">PAD</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="prop-content" class="prop-pane">
+                            <div class="prop-section">
+                                <h4 class="prop-section-title">Contenido del Elemento</h4>
+                                <div class="prop-row">
+                                    <label>Texto Interno (HTML permitido)</label>
+                                    <textarea id="propInnerHTML" rows="8" class="code-textarea" placeholder="Escribe aquí el contenido..."></textarea>
+                                </div>
+                                <div class="prop-row" id="imgSrcControl" style="display:none;">
+                                    <label>URL de la Imagen</label>
+                                    <input type="text" id="propImageSrc" placeholder="https://ejemplo.com/imagen.jpg">
+                                </div>
+                                <div class="prop-row" id="linkHrefControl" style="display:none;">
+                                    <label>URL del Enlace</label>
+                                    <input type="text" id="propLinkHref" placeholder="https://...">
+                                    <label style="margin-top:10px;">Abrir en:</label>
+                                    <select id="propLinkTarget">
+                                        <option value="_self">Misma pestaña (_self)</option>
+                                        <option value="_blank">Nueva pestaña (_blank)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div id="prop-advanced" class="prop-pane">
+                            <div class="prop-section">
+                                <h4 class="prop-section-title">Atributos HTML</h4>
+                                <div class="prop-row">
+                                    <label>ID del Elemento</label>
+                                    <input type="text" id="propElementId" placeholder="mi-elemento-1">
+                                </div>
+                                <div class="prop-row">
+                                    <label>Clases CSS Personalizadas</label>
+                                    <input type="text" id="propCustomClasses" placeholder="clase1 clase2">
+                                </div>
+                            </div>
+                            <div class="prop-section">
+                                <h4 class="prop-section-title">Posicionamiento Z</h4>
+                                <div class="z-index-controls">
+                                    <button class="btn-secondary" id="btnBringForward"><i data-lucide="arrow-up"></i> Traer al frente</button>
+                                    <button class="btn-secondary" id="btnSendBackward"><i data-lucide="arrow-down"></i> Enviar atrás</button>
+                                </div>
+                            </div>
+                            <div class="prop-section">
+                                <h4 class="prop-section-title">Acciones Especiales</h4>
+                                <button class="btn-danger w-100" id="btnDeleteSelectedElement">
+                                    <i data-lucide="trash-2"></i> Eliminar Elemento
+                                </button>
+                                <button class="btn-secondary w-100 mt-2" id="btnDuplicateSelectedElement">
+                                    <i data-lucide="copy"></i> Duplicar Elemento
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </aside>
+        </div>
+        
+        <footer class="app-footer">
+            <div class="breadcrumbs" id="elementBreadcrumbs">
+                <span>Body</span>
+                <i data-lucide="chevron-right"></i>
+                <span class="active-crumb">Selecciona un elemento</span>
+            </div>
+            <div class="footer-stats">
+                <span id="canvasDimensionsDisplay">1440 x 900 px</span>
+                <div class="vertical-separator"></div>
+                <span id="elementCountDisplay">0 Elementos</span>
+                <div class="vertical-separator"></div>
+                <span class="memory-usage"><i data-lucide="cpu"></i> Rendimiento Óptimo</span>
+            </div>
+        </footer>
+    </div>
+
+    <div id="contextMenu" class="context-menu">
+        <ul class="context-menu-list">
+            <li class="context-menu-item" id="ctxCopy"><i data-lucide="copy"></i> Copiar <span class="shortcut">Ctrl+C</span></li>
+            <li class="context-menu-item" id="ctxPaste"><i data-lucide="clipboard-paste"></i> Pegar <span class="shortcut">Ctrl+V</span></li>
+            <li class="context-menu-item" id="ctxDuplicate"><i data-lucide="copy-plus"></i> Duplicar <span class="shortcut">Ctrl+D</span></li>
+            <div class="context-menu-divider"></div>
+            <li class="context-menu-item" id="ctxBringFront"><i data-lucide="arrow-upToLine"></i> Traer al frente</li>
+            <li class="context-menu-item" id="ctxSendBack"><i data-lucide="arrow-downToLine"></i> Enviar al fondo</li>
+            <div class="context-menu-divider"></div>
+            <li class="context-menu-item" id="ctxLock"><i data-lucide="lock"></i> Bloquear/Desbloquear</li>
+            <div class="context-menu-divider"></div>
+            <li class="context-menu-item danger" id="ctxDelete"><i data-lucide="trash-2"></i> Eliminar <span class="shortcut">Supr</span></li>
+        </ul>
+    </div>
+
+    <div class="modal-overlay" id="modalExport">
+        <div class="modal-container modal-large">
+            <div class="modal-header">
+                <h2><i data-lucide="code-2"></i> Exportar Código del Proyecto</h2>
+                <button class="btn-close-modal" id="btnCloseExport"><i data-lucide="x"></i></button>
+            </div>
+            <div class="modal-body">
+                <p class="modal-desc">El código generado está limpio, estructurado y listo para ser utilizado en cualquier servidor web o ser conectado a un backend/base de datos.</p>
+                
+                <div class="code-tabs">
+                    <button class="code-tab active" data-code="html">index.html</button>
+                    <button class="code-tab" data-code="css">styles.css</button>
+                </div>
+                
+                <div class="code-viewer-container">
+                    <pre><code id="exportCodeViewer" class="language-html"></code></pre>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" id="btnCancelExport">Cancelar</button>
+                <button class="btn-primary" id="btnCopyExportCode"><i data-lucide="copy"></i> Copiar al Portapapeles</button>
+                <button class="btn-success" id="btnDownloadZip"><i data-lucide="download"></i> Descargar ZIP</button>
+            </div>
         </div>
     </div>
 
-    <div id="hover-edit-btn" class="floating-toolbar">
-        <button class="btn-float-action btn-edit-main" id="mainEditTrigger">EDITAR</button>
-        <button class="btn-float-action" id="fastDuplicateTrigger" title="Duplicar">📑</button>
-        <button class="btn-float-action btn-float-danger" id="fastDeleteTrigger" title="Eliminar">✕</button>
-    </div>
+    <div id="toastContainer" class="toast-container"></div>
 
-    <div id="measure-tooltip">0px x 0px</div>
-
-    <script src="script.js"></script>
 </body>
 </html>
